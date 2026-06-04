@@ -1,0 +1,32 @@
+# 비밀
+.env
+
+# 산출물 — 받는 사람의 작업 디렉터리
+output/
+temp/
+deliverables/
+
+# Motion graphics 재생성 산출물 (build_catalog.py 로 빌드)
+tools/motion_graphics/out/*.mov
+tools/motion_graphics/out/regression_*.mp4
+tools/motion_graphics/out/check2_*.png
+tools/motion_graphics/out/check_*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 백업
+*.old_*
+*.pre_shared
+*.silence_bak
+*.clean_bak
+*.overlay_bak
+*.fx_clean_bak
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence YouTube Comment motion (16:9 desktop)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* 데스크톱 YouTube — 댓글 영역만 포커스, 영상 플레이어 생략 */
+  .card {
+    width: 1400px;
+    height: 900px;
+    background: #0F0F0F;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 40px 60px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .comments-header {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    margin-bottom: 40px;
+    flex-shrink: 0;
+  }
+  .comments-count {
+    font-size: 36px;
+    font-weight: 700;
+    color: #FFFFFF;
+  }
+  .sort-btn {
+    font-size: 22px;
+    color: #AAAAAA;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .comments-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  .comment {
+    display: flex;
+    gap: 24px;
+    opacity: 0;
+  }
+  .c-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: #9BA4AE;
+    flex-shrink: 0;
+  }
+  .c-body { flex: 1; }
+  .c-header {
+    color: #AAAAAA;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+  }
+  .c-text {
+    color: #FFFFFF;
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .c-actions {
+    color: #AAAAAA;
+    font-size: 22px;
+    margin-top: 14px;
+    display: flex;
+    gap: 28px;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="comments-header">
+        <div class="comments-count" id="comments-count">댓글 1.2천</div>
+        <div class="sort-btn">정렬 기준 ▾</div>
+      </div>
+      <div class="comments-body">
+        <div class="comment" id="c-0">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span id="u-0"></span><span>방금</span></div>
+            <div class="c-text" id="t-0"></div>
+            <div class="c-actions">👍 답글</div>
+          </div>
+        </div>
+        <div class="comment" id="c-1">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span id="u-1"></span><span>1분 전</span></div>
+            <div class="c-text" id="t-1"></div>
+          </div>
+        </div>
+        <div class="comment" id="c-2">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span id="u-2"></span><span>3분 전</span></div>
+            <div class="c-text" id="t-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    comments_count: "댓글 1.2천",
+    comments: [
+      { username: "@kim_worker", text: "기록 시스템", cta: true },
+      { username: "@daily_learner", text: "노션 진짜 최고예요!" },
+      { username: "@office_life", text: "저도 해볼게요 감사합니다" },
+    ],
+    duration: 6.5,
+  };
+
+  if (P.comments_count) document.getElementById("comments-count").textContent = P.comments_count;
+
+  const comments = (P.comments || []).slice(0, 3);
+  comments.forEach((c, i) => {
+    document.getElementById(`u-${i}`).textContent = c.username || "";
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  const commentStart = 0.9;
+  const commentCycle = 0.9;
+  const popDur = 0.35;
+
+  comments.forEach((c, i) => {
+    const at = commentStart + i * commentCycle;
+    tl.to(`#c-${i}`, { opacity: 1, duration: popDur, ease: "power2.out" }, at);
+    const text = c.text || "";
+    if (c.cta) {
+      const state = { n: 0 };
+      tl.to(state, {
+        n: text.length,
+        duration: 0.8,
+        ease: "steps(" + Math.max(1, text.length) + ")",
+        onUpdate: () => {
+          document.getElementById(`t-${i}`).textContent = text.slice(0, Math.floor(state.n));
+        },
+        onComplete: () => {
+          document.getElementById(`t-${i}`).textContent = text;
+        },
+      }, at + popDur * 0.4);
+    } else {
+      tl.call(() => {
+        document.getElementById(`t-${i}`).textContent = text;
+      }, [], at + popDur * 0.4);
+    }
+  });
+
+  const consumed = commentStart + comments.length * commentCycle;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>stat_card motion (1:1 square)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    width: 880px;
+    height: 880px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    padding: 60px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  .row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+  }
+
+  .label {
+    font-size: 38px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  .number {
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .number.top { font-size: 200px; }
+  .number.bottom { font-size: 240px; position: relative; }
+
+  .arrow {
+    font-size: 100px;
+    color: var(--text-primary);
+    line-height: 1;
+    font-weight: 300;
+    opacity: 0;
+  }
+
+  .underline-accent {
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: -16px;
+    height: 8px;
+    background: var(--accent-purple);
+    border-radius: 4px;
+    transform-origin: left center;
+    transform: scaleX(0);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="row" id="row-top">
+        <div class="label">__LABEL_TOP__</div>
+        <div class="number top" id="num-top">0</div>
+      </div>
+      <div class="arrow" id="arrow">↓</div>
+      <div class="row" id="row-bottom">
+        <div class="label">__LABEL_BOTTOM__</div>
+        <div class="number bottom" id="num-bottom">
+          <span id="num-bottom-text">0</span>
+          <div class="underline-accent" id="underline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    top_number: 10, top_suffix: "개",
+    bottom_number: 4, bottom_suffix: "개",
+    duration: 5.5,
+  };
+
+  document.getElementById("num-bottom-text").textContent =
+    P.top_number + (P.bottom_suffix || "");
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+  tl.to("#row-top", { opacity: 1, duration: 0.3, ease: "power2.out" }, 0.6);
+
+  const topObj = { v: 0 };
+  tl.to(topObj, {
+    v: P.top_number, duration: 0.9, ease: "power2.out",
+    onUpdate: () => {
+      document.getElementById("num-top").textContent =
+        Math.round(topObj.v) + (P.top_suffix || "");
+    },
+  }, 0.9);
+
+  tl.to("#arrow", { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.9);
+  tl.to("#row-bottom", { opacity: 1, duration: 0.3, ease: "power2.out" }, 2.2);
+
+  const bottomObj = { v: P.top_number };
+  tl.to(bottomObj, {
+    v: P.bottom_number, duration: 1.2, ease: "power3.inOut",
+    onUpdate: () => {
+      document.getElementById("num-bottom-text").textContent =
+        Math.round(bottomObj.v) + (P.bottom_suffix || "");
+    },
+  }, 2.5);
+
+  tl.to("#underline", { scaleX: 1, duration: 0.5, ease: "power2.out" }, 3.7);
+  tl.to({}, { duration: Math.max(0.1, D - 4.2) }, 4.2);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

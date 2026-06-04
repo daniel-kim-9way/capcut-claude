@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>text_hero_aurora motion (16:9 — animated aurora gradient phrase)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .card {
+    width: 1700px;
+    min-height: 560px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 80px 120px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+  }
+
+  .label {
+    font-size: var(--fs-h4);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+
+  .phrase {
+    font-size: 180px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: var(--ls-tight);
+    text-align: center;
+    color: var(--text-primary);
+    width: 100%;
+  }
+
+  .word {
+    display: inline-block;
+    margin: 0 0.14em;
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  .word.accent {
+    background: linear-gradient(
+      120deg,
+      #B366FF 0%,
+      #FD297B 22%,
+      #5EBEFF 44%,
+      #27C93F 66%,
+      #FFBD2E 84%,
+      #B366FF 100%
+    );
+    background-size: 250% 100%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="label" id="label"></div>
+      <div class="phrase" id="phrase"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    label: "결국",
+    phrase: "기록이 미래를 만든다",
+    accent_words: ["기록"],
+    duration: 5.0,
+  };
+
+  const phraseEl = document.getElementById("phrase");
+  const labelEl = document.getElementById("label");
+
+  if (P.label) labelEl.textContent = P.label;
+  else labelEl.style.display = "none";
+
+  const accentList = P.accent_words || [];
+  const words = (P.phrase || "").split(/\s+/).filter(Boolean);
+  phraseEl.innerHTML = words.map((w) => {
+    const isAccent = accentList.some((a) => a && w.includes(a));
+    const cls = isAccent ? "word accent" : "word";
+    return `<span class="${cls}">${w}</span>`;
+  }).join(" ");
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  if (P.label) {
+    tl.to("#label", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+  }
+
+  tl.to(".word", {
+    opacity: 1,
+    y: 0,
+    duration: 0.55,
+    stagger: 0.13,
+    ease: "back.out(1.5)",
+  }, 0.7);
+
+  // Aurora gradient sweep — drive backgroundPosition via state object so the
+  // timeline (paused per frame by render_motion.py) controls it deterministically.
+  const sweepState = { pos: 0 };
+  const accentEls = document.querySelectorAll(".word.accent");
+  tl.to(sweepState, {
+    pos: 200,
+    duration: 2.6,
+    ease: "power2.inOut",
+    onUpdate: () => {
+      accentEls.forEach((el) => {
+        el.style.backgroundPosition = sweepState.pos + "% 50%";
+      });
+    },
+  }, 1.0);
+
+  const consumed = 0.7 + 0.55 + 0.13 * Math.max(0, words.length - 1) + 1.4;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

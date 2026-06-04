@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>dual_icon motion (1:1 — two brands side by side with vs)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .stage {
+    position: absolute; inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+  }
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    opacity: 0;
+  }
+  .side.left { transform: translateX(-60px); }
+  .side.right { transform: translateX(60px); }
+
+  .icon-card {
+    width: 320px;
+    height: 320px;
+    border-radius: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-symbol {
+    font-weight: 900;
+    color: #FFFFFF;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-size: 210px;
+  }
+
+  .label {
+    font-size: 48px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.01em;
+  }
+
+  .vs {
+    font-size: 120px;
+    font-weight: 900;
+    color: #B366FF;
+    letter-spacing: -0.02em;
+    opacity: 0;
+    transform: scale(0.6);
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="side left" id="side-left">
+      <div class="icon-card" id="card-left">
+        <div class="icon-symbol" id="sym-left">N</div>
+      </div>
+      <div class="label" id="label-left">노션</div>
+    </div>
+
+    <div class="vs" id="vs">vs</div>
+
+    <div class="side right" id="side-right">
+      <div class="icon-card" id="card-right">
+        <div class="icon-symbol" id="sym-right">A</div>
+      </div>
+      <div class="label" id="label-right">애플 노트</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    left: { symbol: "N", hex_color: "#000000", label: "노션" },
+    right: { symbol: "A", hex_color: "#FFC107", label: "애플 노트", symbol_color: "#1A1A1A" },
+    vs_text: "vs",
+    duration: 4.0,
+  };
+
+  // Left
+  const cardL = document.getElementById("card-left");
+  const symL = document.getElementById("sym-left");
+  cardL.style.background = P.left.hex_color || "#000000";
+  symL.textContent = P.left.symbol || "";
+  symL.style.color = P.left.symbol_color || "#FFFFFF";
+  document.getElementById("label-left").textContent = P.left.label || "";
+
+  // Right
+  const cardR = document.getElementById("card-right");
+  const symR = document.getElementById("sym-right");
+  cardR.style.background = P.right.hex_color || "#000000";
+  symR.textContent = P.right.symbol || "";
+  symR.style.color = P.right.symbol_color || "#FFFFFF";
+  document.getElementById("label-right").textContent = P.right.label || "";
+
+  document.getElementById("vs").textContent = P.vs_text || "vs";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Left slides in from left
+  tl.to("#side-left", {
+    opacity: 1, x: 0,
+    duration: 0.55, ease: "power3.out",
+  }, 0);
+
+  // Right slides in from right
+  tl.to("#side-right", {
+    opacity: 1, x: 0,
+    duration: 0.55, ease: "power3.out",
+  }, 0.15);
+
+  // "vs" pops in with scale
+  tl.to("#vs", {
+    opacity: 1, scale: 1,
+    duration: 0.45, ease: "back.out(2)",
+  }, 0.8);
+
+  // Subtle breathing pulse on "vs"
+  tl.to("#vs", {
+    scale: 1.1,
+    duration: 0.8,
+    yoyo: true, repeat: 1,
+    ease: "power2.inOut",
+  }, 1.3);
+
+  const consumed = 2.9;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

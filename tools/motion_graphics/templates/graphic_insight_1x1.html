@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>graphic_insight motion (1:1 — checklist square)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    width: 880px;
+    height: 880px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 70px 80px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 44px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+    margin-bottom: 50px;
+    opacity: 0;
+  }
+
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin-bottom: 30px;
+    opacity: 0;
+  }
+
+  .checkbox {
+    width: 76px;
+    height: 76px;
+    border: 4px solid var(--text-muted);
+    border-radius: 14px;
+    flex-shrink: 0;
+    position: relative;
+    background: transparent;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .checkbox.checked {
+    background: var(--accent-purple);
+    border-color: var(--accent-purple);
+  }
+  .checkmark {
+    position: absolute;
+    left: 17px;
+    top: 9px;
+    color: var(--text-primary);
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    opacity: 0;
+  }
+
+  .item-text {
+    font-size: 44px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    flex: 1;
+  }
+  .item-row.completed .item-text {
+    color: var(--text-muted-dark);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="title" id="title">오늘 체크리스트</div>
+      <div class="item-row" id="row-0"><div class="checkbox" id="cb-0"><div class="checkmark" id="cm-0">✓</div></div><div class="item-text" id="text-0"></div></div>
+      <div class="item-row" id="row-1"><div class="checkbox" id="cb-1"><div class="checkmark" id="cm-1">✓</div></div><div class="item-text" id="text-1"></div></div>
+      <div class="item-row" id="row-2"><div class="checkbox" id="cb-2"><div class="checkmark" id="cm-2">✓</div></div><div class="item-text" id="text-2"></div></div>
+      <div class="item-row" id="row-3"><div class="checkbox" id="cb-3"><div class="checkmark" id="cm-3">✓</div></div><div class="item-text" id="text-3"></div></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "오늘 체크리스트",
+    items: ["회의 5분 룰", "퇴근 전 3줄 일기", "A4 한 페이지 요약"],
+    duration: 6.0,
+  };
+
+  document.getElementById("title").textContent = P.title || "";
+  const items = (P.items || []).slice(0, 4);
+  items.forEach((text, i) => { document.getElementById(`text-${i}`).textContent = text; });
+  for (let i = items.length; i < 4; i++) {
+    document.getElementById(`row-${i}`).style.display = "none";
+  }
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#title", { opacity: 1, duration: 0.4 }, 0.5);
+
+  const rowStart = 0.9, rowCycle = 0.35;
+  items.forEach((_, i) => {
+    tl.to(`#row-${i}`, { opacity: 1, duration: 0.3, ease: "power2.out" }, rowStart + i * rowCycle);
+  });
+
+  const checkStart = rowStart + items.length * rowCycle + 0.4;
+  const checkCycle = 0.55;
+  items.forEach((_, i) => {
+    const at = checkStart + i * checkCycle;
+    tl.call(() => {
+      document.getElementById(`cb-${i}`).classList.add("checked");
+      document.getElementById(`row-${i}`).classList.add("completed");
+    }, [], at);
+    tl.to(`#cm-${i}`, { opacity: 1, duration: 0.25, ease: "back.out(2)" }, at);
+    tl.fromTo(`#cb-${i}`, { scale: 1 }, { scale: 1.15, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.inOut" }, at);
+  });
+
+  const consumed = checkStart + items.length * checkCycle;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

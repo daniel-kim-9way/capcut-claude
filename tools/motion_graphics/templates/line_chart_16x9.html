@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>line_chart motion (16:9 — SVG line draw + counter)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .card {
+    width: 1500px;
+    height: 880px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 60px 80px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30px;
+  }
+  .title-block { display: flex; flex-direction: column; gap: 8px; opacity: 0; }
+  .title {
+    font-size: 38px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+  }
+  .subtitle {
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--text-muted-dark);
+  }
+
+  .value-block { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; opacity: 0; }
+  .value {
+    font-size: 92px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .delta {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--accent-success);
+  }
+
+  .chart-area {
+    flex: 1;
+    position: relative;
+  }
+
+  svg.chart {
+    width: 100%; height: 100%;
+    overflow: visible;
+  }
+  .grid-line {
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 1.5;
+  }
+  .data-line {
+    fill: none;
+    stroke: var(--accent-purple);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .area-fill {
+    fill: url(#fill-grad);
+    opacity: 0;
+  }
+  .end-dot {
+    fill: var(--accent-purple);
+    stroke: var(--bg-dark);
+    stroke-width: 4;
+    opacity: 0;
+  }
+  .axis-label {
+    fill: var(--text-muted);
+    font-size: 22px;
+    font-weight: 500;
+    font-family: "Pretendard", sans-serif;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="header">
+        <div class="title-block" id="title-block">
+          <div class="title" id="title">매출 성장</div>
+          <div class="subtitle" id="subtitle">최근 6개월</div>
+        </div>
+        <div class="value-block" id="value-block">
+          <div class="value" id="value">0</div>
+          <div class="delta" id="delta">+0%</div>
+        </div>
+      </div>
+
+      <div class="chart-area">
+        <svg class="chart" viewBox="0 0 1340 480" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="fill-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#B366FF" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#B366FF" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line class="grid-line" x1="0"   y1="120" x2="1340" y2="120"/>
+          <line class="grid-line" x1="0"   y1="240" x2="1340" y2="240"/>
+          <line class="grid-line" x1="0"   y1="360" x2="1340" y2="360"/>
+          <path class="area-fill" id="area" d=""></path>
+          <path class="data-line" id="line" d=""></path>
+          <circle class="end-dot" id="dot" r="14"></circle>
+          <text class="axis-label" x="0"    y="475" text-anchor="start"  id="x0">1월</text>
+          <text class="axis-label" x="268"  y="475" text-anchor="middle" id="x1">2월</text>
+          <text class="axis-label" x="536"  y="475" text-anchor="middle" id="x2">3월</text>
+          <text class="axis-label" x="804"  y="475" text-anchor="middle" id="x3">4월</text>
+          <text class="axis-label" x="1072" y="475" text-anchor="middle" id="x4">5월</text>
+          <text class="axis-label" x="1340" y="475" text-anchor="end"    id="x5">6월</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "매출 성장",
+    subtitle: "최근 6개월",
+    x_labels: ["1월", "2월", "3월", "4월", "5월", "6월"],
+    values: [120, 145, 138, 175, 210, 268],
+    suffix: "M",
+    delta_text: "+123%",
+    duration: 5.5,
+  };
+
+  document.getElementById("title").textContent = P.title || "";
+  document.getElementById("subtitle").textContent = P.subtitle || "";
+  document.getElementById("delta").textContent = P.delta_text || "";
+
+  const xLabels = (P.x_labels || []).slice(0, 6);
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById(`x${i}`);
+    if (xLabels[i]) el.textContent = xLabels[i];
+    else el.textContent = "";
+  }
+
+  const values = (P.values || []).slice(0, 6);
+  // Map values to SVG coords (viewBox 1340×480, plot area y=20..420)
+  const vMin = Math.min(...values);
+  const vMax = Math.max(...values);
+  const yRange = vMax - vMin || 1;
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * 1340;
+    const y = 420 - ((v - vMin) / yRange) * 380; // padded top 20
+    return [x, y];
+  });
+  const linePath = "M " + points.map(p => `${p[0]} ${p[1]}`).join(" L ");
+  const areaPath = linePath + ` L ${points[points.length-1][0]} 480 L 0 480 Z`;
+  document.getElementById("line").setAttribute("d", linePath);
+  document.getElementById("area").setAttribute("d", areaPath);
+
+  const last = points[points.length - 1];
+  const dot = document.getElementById("dot");
+  dot.setAttribute("cx", last[0]);
+  dot.setAttribute("cy", last[1]);
+
+  // Animate line draw via stroke-dasharray
+  const linePathEl = document.getElementById("line");
+  const length = linePathEl.getTotalLength();
+  linePathEl.style.strokeDasharray = length;
+  linePathEl.style.strokeDashoffset = length;
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Card
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#title-block", { opacity: 1, duration: 0.4 }, 0.5);
+
+  // Line draw
+  tl.to(linePathEl, {
+    strokeDashoffset: 0,
+    duration: 1.6,
+    ease: "power2.inOut",
+  }, 0.9);
+
+  // Area fade in slightly behind line
+  tl.to("#area", { opacity: 1, duration: 0.6 }, 1.6);
+
+  // End dot pop
+  tl.to("#dot", { opacity: 1, scale: 1.2, duration: 0.3, transformOrigin: "center", ease: "back.out(2)" }, 2.4);
+  tl.to("#dot", { scale: 1, duration: 0.3 }, 2.7);
+
+  // Value count-up + value-block reveal
+  tl.to("#value-block", { opacity: 1, duration: 0.4 }, 1.0);
+  const state = { v: values[0] || 0 };
+  const finalVal = values[values.length - 1];
+  tl.to(state, {
+    v: finalVal,
+    duration: 1.6,
+    ease: "power2.out",
+    onUpdate: () => {
+      document.getElementById("value").textContent =
+        Math.round(state.v) + (P.suffix || "");
+    },
+    onComplete: () => {
+      document.getElementById("value").textContent = finalVal + (P.suffix || "");
+    },
+  }, 1.0);
+
+  const consumed = 3.0;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

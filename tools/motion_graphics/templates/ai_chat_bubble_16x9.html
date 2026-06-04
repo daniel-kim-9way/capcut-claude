@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ai_chat_bubble motion (16:9 — generic AI chat: user msg → typing dots → AI response typewriter)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  .panel {
+    width: 1500px;
+    height: 880px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 60px 80px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: translateY(28px);
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow: hidden;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    color: var(--text-muted);
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+  .header .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent-success);
+  }
+
+  .messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow: hidden;
+  }
+
+  .row {
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+    opacity: 0;
+  }
+  .row.user { justify-content: flex-end; }
+  .row.ai   { justify-content: flex-start; }
+
+  .avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 30px;
+  }
+
+  .bubble {
+    max-width: 1000px;
+    padding: 28px 36px;
+    border-radius: 28px;
+    font-size: 36px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: var(--ls-snug);
+    word-break: keep-all;
+  }
+  .row.user .bubble {
+    background: var(--accent-purple);
+    color: #FFFFFF;
+    border-bottom-right-radius: 8px;
+  }
+  .row.ai .bubble {
+    background: #1F1F22;
+    color: #ECECEC;
+    border-bottom-left-radius: 8px;
+  }
+
+  /* Typing indicator (3 bouncing dots) */
+  .typing-bubble {
+    background: #1F1F22;
+    border-radius: 28px;
+    border-bottom-left-radius: 8px;
+    padding: 26px 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tdot {
+    width: 14px; height: 14px;
+    background: #8A8A8E;
+    border-radius: 50%;
+  }
+
+  .ai-bubble .cursor {
+    display: inline-block;
+    width: 3px; height: 32px;
+    background: #ECECEC;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="panel" id="panel">
+
+      <div class="header" id="header">
+        <div class="dot"></div>
+        <span id="header-text">AI Chat</span>
+      </div>
+
+      <div class="messages">
+        <!-- User message -->
+        <div class="row user" id="user-row">
+          <div class="bubble" id="user-bubble"></div>
+          <div class="avatar" id="user-avatar">나</div>
+        </div>
+
+        <!-- AI typing indicator -->
+        <div class="row ai" id="ai-typing-row" style="opacity:0;">
+          <div class="avatar" id="ai-avatar-typing">AI</div>
+          <div class="typing-bubble">
+            <div class="tdot" id="td-0"></div>
+            <div class="tdot" id="td-1"></div>
+            <div class="tdot" id="td-2"></div>
+          </div>
+        </div>
+
+        <!-- AI response -->
+        <div class="row ai ai-bubble" id="ai-row" style="opacity:0;">
+          <div class="avatar" id="ai-avatar">AI</div>
+          <div class="bubble" id="ai-bubble"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    header: "AI Chat",
+    user: { avatar: "나", bg: "#6B6B70", message: "오늘 회의 핵심만 요약해줘" },
+    ai: {
+      avatar: "C",
+      bg: "#D77757",
+      response: "결정 3건 · 액션 2건 · 다음 미팅은 5월 15일입니다.",
+    },
+    duration: 7.5,
+  };
+
+  document.getElementById("header-text").textContent = P.header || "AI Chat";
+
+  // User
+  document.getElementById("user-avatar").textContent = (P.user && P.user.avatar) || "U";
+  if (P.user && P.user.bg) document.getElementById("user-avatar").style.background = P.user.bg;
+
+  // AI avatars (typing + response use same)
+  const aiAvatar = (P.ai && P.ai.avatar) || "AI";
+  const aiBg = (P.ai && P.ai.bg) || "#D77757";
+  document.getElementById("ai-avatar-typing").textContent = aiAvatar;
+  document.getElementById("ai-avatar-typing").style.background = aiBg;
+  document.getElementById("ai-avatar").textContent = aiAvatar;
+  document.getElementById("ai-avatar").style.background = aiBg;
+
+  const userMsg = (P.user && P.user.message) || "";
+  const aiMsg = (P.ai && P.ai.response) || "";
+
+  const userBubble = document.getElementById("user-bubble");
+  const aiBubble = document.getElementById("ai-bubble");
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#panel", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+  tl.to("#header", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+
+  // User row slides up + types
+  tl.fromTo("#user-row", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  const userState = { n: 0 };
+  const userDur = Math.max(0.5, Math.min(1.8, userMsg.length * 0.04));
+  tl.to(userState, {
+    n: userMsg.length,
+    duration: userDur,
+    ease: "steps(" + Math.max(1, userMsg.length) + ")",
+    onUpdate: () => { userBubble.textContent = userMsg.slice(0, Math.floor(userState.n)); },
+    onComplete: () => { userBubble.textContent = userMsg; },
+  }, 0.8);
+
+  // AI typing dots appear
+  const typingAt = 0.8 + userDur + 0.4;
+  tl.fromTo("#ai-typing-row", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, typingAt);
+
+  // Bouncing dots (3 cycles within ~1.2s)
+  for (let cycle = 0; cycle < 3; cycle++) {
+    [0, 1, 2].forEach((i) => {
+      const at = typingAt + 0.4 + cycle * 0.5 + i * 0.1;
+      tl.fromTo(`#td-${i}`, { y: 0, opacity: 0.5 }, { y: -10, opacity: 1, duration: 0.18, ease: "power2.out" }, at);
+      tl.to(`#td-${i}`, { y: 0, opacity: 0.5, duration: 0.22, ease: "power2.in" }, at + 0.18);
+    });
+  }
+
+  const aiAt = typingAt + 0.4 + 1.7;
+  // Hide typing, show AI response
+  tl.to("#ai-typing-row", { opacity: 0, duration: 0.25 }, aiAt);
+  tl.fromTo("#ai-row", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, aiAt + 0.05);
+
+  // Typewriter AI message
+  const aiState = { n: 0 };
+  const aiDur = Math.max(0.6, Math.min(2.4, aiMsg.length * 0.045));
+  tl.to(aiState, {
+    n: aiMsg.length,
+    duration: aiDur,
+    ease: "steps(" + Math.max(1, aiMsg.length) + ")",
+    onUpdate: () => {
+      const slice = aiMsg.slice(0, Math.floor(aiState.n));
+      aiBubble.innerHTML = slice + (aiState.n < aiMsg.length ? '<span class="cursor"></span>' : "");
+    },
+    onComplete: () => { aiBubble.textContent = aiMsg; },
+  }, aiAt + 0.45);
+
+  const consumed = aiAt + 0.45 + aiDur + 0.3;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

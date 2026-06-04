@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence KakaoTalk motion composition (9:16 mobile — 4 separate bubbles)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .phone-card {
+    width: 920px;
+    height: 1640px;
+    background: #B2C7D9;
+    border-radius: 56px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 60px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  /* Status bar — 이모지 대신 flat 그래픽 */
+  .status-bar {
+    height: 60px;
+    background: #B2C7D9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 44px;
+    flex-shrink: 0;
+    font-size: 26px;
+    font-weight: 700;
+    color: #1A1A1A;
+  }
+  .status-icons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .signal-bars {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    height: 18px;
+  }
+  .signal-bars span {
+    width: 4px;
+    background: #1A1A1A;
+    border-radius: 1px;
+  }
+  .signal-bars span:nth-child(1) { height: 6px; }
+  .signal-bars span:nth-child(2) { height: 10px; }
+  .signal-bars span:nth-child(3) { height: 14px; }
+  .signal-bars span:nth-child(4) { height: 18px; }
+  .battery-icon {
+    width: 28px;
+    height: 14px;
+    border: 2px solid #1A1A1A;
+    border-radius: 3px;
+    position: relative;
+  }
+  .battery-icon::after {
+    content: "";
+    position: absolute;
+    right: -5px; top: 3px;
+    width: 3px; height: 4px;
+    background: #1A1A1A;
+    border-radius: 0 1px 1px 0;
+  }
+  .battery-icon::before {
+    content: "";
+    position: absolute;
+    left: 1px; top: 1px;
+    width: 80%; height: calc(100% - 2px);
+    background: #1A1A1A;
+    border-radius: 1px;
+  }
+
+  .chat-header {
+    height: 100px;
+    background: #B2C7D9;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    padding: 0 36px;
+    flex-shrink: 0;
+  }
+  .header-back { font-size: 44px; color: #1A1A1A; font-weight: 500; }
+  .header-title {
+    flex: 1;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: #1A1A1A;
+    letter-spacing: -0.01em;
+  }
+  .header-menu { font-size: 38px; color: #1A1A1A; letter-spacing: -2px; }
+
+  .chat-body {
+    flex: 1;
+    padding: 50px 40px 40px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .msg-group {
+    display: flex;
+    gap: 18px;
+    opacity: 0;
+  }
+
+  .avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #9BA4AE;
+    flex-shrink: 0;
+  }
+
+  .msg-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sender-name {
+    font-size: 26px;
+    font-weight: 500;
+    color: #2B2B2B;
+    margin-bottom: 8px;
+  }
+
+  /* 각 독립 말풍선 — 텍스트 길이에 딱 맞게 */
+  .bubble-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    opacity: 0;
+    transform: scale(0.9);
+    transform-origin: bottom left;
+  }
+  .bubble {
+    background: #FAE100;
+    border-radius: 24px;
+    padding: 22px 28px;
+    font-size: 40px;
+    font-weight: 500;
+    color: #1A1A1A;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .bubble-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    opacity: 0;
+    font-size: 22px;
+  }
+  .read-indicator { color: #FFB800; font-weight: 500; }
+  .timestamp { color: #606060; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="status-bar">
+        <span class="time">9:41</span>
+        <div class="status-icons">
+          <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="battery-icon"></div>
+        </div>
+      </div>
+
+      <div class="chat-header">
+        <div class="header-back">←</div>
+        <div class="header-title">프로젝트 회의방</div>
+        <div class="header-menu">≡</div>
+      </div>
+
+      <div class="chat-body">
+        <div class="msg-group" id="msg-group">
+          <div class="avatar"></div>
+          <div class="msg-col">
+            <div class="sender-name">김팀장</div>
+            <div class="bubble-wrapper" id="bw-0">
+              <div class="bubble" id="b-0"></div>
+            </div>
+            <div class="bubble-wrapper" id="bw-1">
+              <div class="bubble" id="b-1"></div>
+            </div>
+            <div class="bubble-wrapper" id="bw-2">
+              <div class="bubble" id="b-2"></div>
+            </div>
+            <div class="bubble-wrapper" id="bw-3">
+              <div class="bubble" id="b-3"></div>
+              <div class="bubble-meta" id="meta">
+                <div class="read-indicator">1</div>
+                <div class="timestamp">오후 3:42</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    header_title: "프로젝트 회의방",
+    sender_name: "김팀장",
+    lines: ["결정", "액션", "책임자", "기간"],
+    timestamp: "오후 3:42",
+    duration: 6.5,
+  };
+
+  if (P.header_title) document.querySelector(".header-title").textContent = P.header_title;
+  if (P.sender_name) document.querySelector(".sender-name").textContent = P.sender_name;
+  if (P.timestamp) document.querySelector(".timestamp").textContent = P.timestamp;
+
+  const lines = (P.lines || []).slice(0, 4);
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Phone card slides up
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // Message group (avatar + name) fades in
+  tl.to("#msg-group", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  // 4 independent bubbles pop in sequentially + text reveal
+  const bubbleStart = 1.2;
+  const bubbleCycle = 0.75; // 말풍선 간격
+  const popDur = 0.35;
+  const typeDur = 0.35;
+
+  lines.forEach((text, i) => {
+    const at = bubbleStart + i * bubbleCycle;
+    // Pop-in animation
+    tl.to(`#bw-${i}`, {
+      opacity: 1,
+      scale: 1,
+      duration: popDur,
+      ease: "back.out(1.8)",
+    }, at);
+    // Text typewriter
+    const state = { n: 0 };
+    tl.to(state, {
+      n: text.length,
+      duration: typeDur,
+      ease: "steps(" + Math.max(1, text.length) + ")",
+      onUpdate: () => {
+        document.getElementById(`b-${i}`).textContent = text.slice(0, Math.floor(state.n));
+      },
+      onComplete: () => {
+        document.getElementById(`b-${i}`).textContent = text;
+      },
+    }, at + popDur * 0.5);
+  });
+
+  // Meta (read indicator + timestamp) after last bubble
+  const metaAt = bubbleStart + lines.length * bubbleCycle + 0.3;
+  tl.to("#meta", { opacity: 1, duration: 0.4, ease: "power2.out" }, metaAt);
+
+  const consumed = metaAt + 0.4;
+  const hold = Math.max(0.1, D - consumed);
+  tl.to({}, { duration: hold }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>bar_chart motion (16:9 — vertical bar chart with grow-up + value count-up)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .card {
+    width: 1700px;
+    height: 920px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 60px 80px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 40px;
+    opacity: 0;
+  }
+  .title-block { display: flex; flex-direction: column; gap: 8px; }
+  .title {
+    font-size: var(--fs-h3);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+  }
+  .subtitle {
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text-muted-dark);
+  }
+  .badge {
+    background: rgba(179, 102, 255, 0.18);
+    color: var(--accent-purple);
+    font-size: 26px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 10px 22px;
+    align-self: flex-start;
+  }
+
+  .chart-area {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 30px;
+    gap: 30px;
+    position: relative;
+  }
+  .grid-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    height: 100%;
+    justify-content: flex-end;
+    position: relative;
+  }
+  .bar-value {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--ls-tight);
+    opacity: 0;
+  }
+  .bar {
+    width: 100%;
+    max-width: 180px;
+    background: linear-gradient(180deg, #B366FF 0%, #7C3AED 100%);
+    border-radius: 16px 16px 0 0;
+    height: 0;
+    transform-origin: bottom;
+  }
+  .bar.peak {
+    background: linear-gradient(180deg, #FD297B 0%, #B366FF 100%);
+  }
+  .bar-label {
+    margin-top: 18px;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+
+      <div class="header" id="header">
+        <div class="title-block">
+          <div class="title" id="title">월별 가입자</div>
+          <div class="subtitle" id="subtitle">최근 6개월</div>
+        </div>
+        <div class="badge" id="badge">+248%</div>
+      </div>
+
+      <div class="chart-area" id="chart">
+        <div class="grid-line" style="bottom: 25%"></div>
+        <div class="grid-line" style="bottom: 50%"></div>
+        <div class="grid-line" style="bottom: 75%"></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "월별 가입자",
+    subtitle: "최근 6개월",
+    badge: "+248%",
+    bars: [
+      { label: "1월", value: 120 },
+      { label: "2월", value: 180 },
+      { label: "3월", value: 245 },
+      { label: "4월", value: 310 },
+      { label: "5월", value: 380 },
+      { label: "6월", value: 480 },
+    ],
+    suffix: "",
+    duration: 5.5,
+  };
+
+  document.getElementById("title").textContent = P.title || "";
+  document.getElementById("subtitle").textContent = P.subtitle || "";
+  const badge = document.getElementById("badge");
+  if (P.badge) badge.textContent = P.badge;
+  else badge.style.display = "none";
+
+  const chart = document.getElementById("chart");
+  const bars = (P.bars || []).slice(0, 8);
+  const maxVal = Math.max(...bars.map(b => b.value), 1);
+
+  // Build bar columns
+  bars.forEach((b, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    col.innerHTML = `
+      <div class="bar-value" id="val-${i}">0</div>
+      <div class="bar ${i === bars.length - 1 ? 'peak' : ''}" id="bar-${i}"></div>
+      <div class="bar-label" id="lbl-${i}">${b.label || ""}</div>
+    `;
+    chart.appendChild(col);
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#header", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+
+  // Bars grow + value count-up + label fade
+  const barStart = 0.8;
+  const barCycle = 0.18;
+
+  bars.forEach((b, i) => {
+    const at = barStart + i * barCycle;
+    const heightPx = (b.value / maxVal) * 600; // chart area ~720, leave space for label
+    tl.to(`#bar-${i}`, {
+      height: heightPx + "px",
+      duration: 0.9,
+      ease: "power3.out",
+    }, at);
+
+    const valState = { v: 0 };
+    tl.to(valState, {
+      v: b.value,
+      duration: 0.9,
+      ease: "power2.out",
+      onUpdate: () => {
+        document.getElementById(`val-${i}`).textContent = Math.round(valState.v) + (P.suffix || "");
+      },
+      onComplete: () => {
+        document.getElementById(`val-${i}`).textContent = b.value + (P.suffix || "");
+      },
+    }, at);
+    tl.to(`#val-${i}`, { opacity: 1, duration: 0.4 }, at + 0.4);
+    tl.to(`#lbl-${i}`, { opacity: 1, duration: 0.3 }, at + 0.2);
+  });
+
+  const consumed = barStart + bars.length * barCycle + 0.9;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

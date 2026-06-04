@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Discord motion (16:9 desktop workspace)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .discord {
+    width: 1600px;
+    height: 900px;
+    background: #313338;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    box-shadow: var(--shadow-card-heavy);
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  /* Server strip (leftmost) */
+  .server-strip {
+    width: 88px;
+    background: #1E1F22;
+    padding: 14px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .server-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #5865F2;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 700;
+  }
+  .server-icon.other { background: #3F4147; }
+
+  /* Channel list */
+  .channels {
+    width: 260px;
+    background: #2B2D31;
+    padding: 20px 8px;
+    flex-shrink: 0;
+  }
+  .channels-header {
+    padding: 10px 12px 16px;
+    color: #F2F3F5;
+    font-size: 22px;
+    font-weight: 700;
+    border-bottom: 1px solid #3F4147;
+    margin-bottom: 14px;
+  }
+  .ch-group {
+    color: #949BA4;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 8px;
+    margin-top: 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .ch-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: #949BA4;
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+  .ch-item.active {
+    background: #404249;
+    color: #FFFFFF;
+  }
+  .ch-hash { color: #80848E; font-weight: 400; font-size: 22px; }
+
+  /* Chat area */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .chat-header {
+    height: 60px;
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #26272C;
+    flex-shrink: 0;
+    color: #F2F3F5;
+  }
+  .ch-title { font-size: 20px; font-weight: 700; }
+  .ch-hash-header { font-weight: 300; color: #80848E; margin-right: 8px; font-size: 24px; }
+
+  .messages {
+    flex: 1;
+    padding: 30px 40px;
+    overflow: hidden;
+  }
+  .msg {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+    opacity: 0;
+  }
+  .m-avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: #5865F2;
+    flex-shrink: 0;
+  }
+  .m-body { flex: 1; }
+  .m-meta {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .m-name {
+    font-size: 22px;
+    font-weight: 500;
+    color: #F2F3F5;
+  }
+  .m-time { font-size: 16px; color: #949BA4; }
+  .m-text {
+    font-size: 24px;
+    color: #DBDEE1;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="discord" id="card">
+      <div class="server-strip">
+        <div class="server-icon">D</div>
+        <div class="server-icon other">A</div>
+        <div class="server-icon other">B</div>
+      </div>
+      <div class="channels">
+        <div class="channels-header" id="server-name">Dev Community</div>
+        <div class="ch-group">텍스트 채널</div>
+        <div class="ch-item"><span class="ch-hash">#</span><span>공지사항</span></div>
+        <div class="ch-item active"><span class="ch-hash">#</span><span id="channel-active">프로젝트</span></div>
+        <div class="ch-item"><span class="ch-hash">#</span><span>자유게시판</span></div>
+      </div>
+      <div class="chat-area">
+        <div class="chat-header">
+          <span class="ch-hash-header">#</span>
+          <span class="ch-title" id="ch-title">프로젝트</span>
+        </div>
+        <div class="messages">
+          <div class="msg" id="m-0">
+            <div class="m-avatar"></div>
+            <div class="m-body">
+              <div class="m-meta"><span class="m-name" id="n-0"></span><span class="m-time" id="t-0"></span></div>
+              <div class="m-text" id="x-0"></div>
+            </div>
+          </div>
+          <div class="msg" id="m-1">
+            <div class="m-avatar"></div>
+            <div class="m-body">
+              <div class="m-meta"><span class="m-name" id="n-1"></span><span class="m-time" id="t-1"></span></div>
+              <div class="m-text" id="x-1"></div>
+            </div>
+          </div>
+          <div class="msg" id="m-2">
+            <div class="m-avatar"></div>
+            <div class="m-body">
+              <div class="m-meta"><span class="m-name" id="n-2"></span><span class="m-time" id="t-2"></span></div>
+              <div class="m-text" id="x-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    server_name: "Dev Community",
+    channel: "프로젝트",
+    messages: [
+      { name: "@dev_kim", time: "오늘 15:42", text: "배포 완료했습니다 🚀" },
+      { name: "@designer_lee", time: "오늘 15:43", text: "확인했어요, 디자인 반영 잘 됐네요" },
+      { name: "@pm_park", time: "오늘 15:45", text: "내일 회고 미팅 3시에 하겠습니다" },
+    ],
+    duration: 6.0,
+  };
+
+  document.getElementById("server-name").textContent = P.server_name || "";
+  document.getElementById("channel-active").textContent = P.channel || "";
+  document.getElementById("ch-title").textContent = P.channel || "";
+
+  const msgs = (P.messages || []).slice(0, 3);
+  msgs.forEach((m, i) => {
+    document.getElementById(`n-${i}`).textContent = m.name || "";
+    document.getElementById(`t-${i}`).textContent = m.time || "";
+    document.getElementById(`x-${i}`).textContent = m.text || "";
+  });
+  for (let i = msgs.length; i < 3; i++) {
+    document.getElementById(`m-${i}`).style.display = "none";
+  }
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  const msgStart = 0.9;
+  const msgCycle = 1.0;
+  msgs.forEach((_, i) => {
+    tl.to(`#m-${i}`, { opacity: 1, duration: 0.4, ease: "power2.out" }, msgStart + i * msgCycle);
+  });
+
+  const consumed = msgStart + msgs.length * msgCycle + 0.2;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Terminal motion (16:9 desktop CLI)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  /* System monospace — Consolas / Menlo / Monaco */
+  html, body { width: 1920px; height: 1080px; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  .terminal {
+    width: 1600px;
+    height: 900px;
+    background: #1E1E1E;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  /* Top title bar with traffic lights */
+  .title-bar {
+    height: 56px;
+    background: #3C3C3C;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .tl-btn {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+  }
+  .tl-red    { background: #FF5F56; }
+  .tl-yellow { background: #FFBD2E; }
+  .tl-green  { background: #27C93F; }
+
+  .tl-title {
+    flex: 1;
+    text-align: center;
+    color: #C0C0C0;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  /* Terminal body */
+  .body {
+    flex: 1;
+    padding: 40px 48px;
+    overflow: hidden;
+    font-size: 28px;
+    line-height: 1.55;
+  }
+
+  .line { color: #E5E5E5; opacity: 0; margin-bottom: 4px; white-space: pre; }
+  .line.prompt-line { color: #E5E5E5; }
+  .prompt-user { color: #5EBEFF; font-weight: 600; }
+  .prompt-host { color: #A0D77D; }
+  .prompt-sign { color: #E5E5E5; margin-right: 12px; }
+  .cmd-text { color: #E5E5E5; font-weight: 500; }
+  .cursor {
+    display: inline-block;
+    width: 12px;
+    height: 28px;
+    background: #E5E5E5;
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+  .out-ok { color: #27C93F; }
+  .out-info { color: #E5E5E5; }
+  .out-dim { color: #8E8E8E; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="terminal" id="terminal">
+
+      <div class="title-bar">
+        <div class="tl-btn tl-red"></div>
+        <div class="tl-btn tl-yellow"></div>
+        <div class="tl-btn tl-green"></div>
+        <div class="tl-title" id="tl-title">~ — zsh</div>
+      </div>
+
+      <div class="body" id="body"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "~ — zsh",
+    user: "dev",
+    host: "mac",
+    commands: [
+      { cmd: "npm run build", output: ["> build completed in 2.3s ✓"], output_color: "ok" },
+      { cmd: "git commit -m 'feat: record system'", output: ["[main abc1234] feat: record system", " 3 files changed, 42 insertions(+)"], output_color: "info" },
+    ],
+    duration: 7.0,
+  };
+
+  document.getElementById("tl-title").textContent = P.title || "";
+
+  const body = document.getElementById("body");
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#terminal", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // Build lines: for each command, prompt + typed cmd + output(s)
+  let t = 0.8;          // starting time
+  const typeSpeed = 0.04;  // per char
+  const minTypeDur = 0.35;
+  const betweenCmd = 0.5;
+
+  function addLine(colorClass = "") {
+    const div = document.createElement("div");
+    div.className = `line ${colorClass}`;
+    body.appendChild(div);
+    return div;
+  }
+
+  function animateLine(lineEl, buildFn, startAt, dur) {
+    // reveal line opacity + type content
+    tl.to(lineEl, { opacity: 1, duration: 0.1 }, startAt);
+    tl.call(buildFn, [], startAt);
+  }
+
+  (P.commands || []).forEach((c) => {
+    // --- prompt + command typed out ---
+    const promptLine = addLine("prompt-line");
+    promptLine.innerHTML =
+      `<span class="prompt-user">${P.user || "dev"}@${P.host || "mac"}</span>` +
+      `<span class="prompt-sign"> $</span>` +
+      `<span class="cmd-text" id="cmd-${body.children.length}"></span>` +
+      `<span class="cursor"></span>`;
+    const cmdSpan = promptLine.querySelector(".cmd-text");
+
+    const cmdText = c.cmd || "";
+    const dur = Math.max(minTypeDur, cmdText.length * typeSpeed);
+    tl.to(promptLine, { opacity: 1, duration: 0.1 }, t);
+    const state = { n: 0 };
+    tl.to(state, {
+      n: cmdText.length,
+      duration: dur,
+      ease: "steps(" + Math.max(1, cmdText.length) + ")",
+      onUpdate: () => { cmdSpan.textContent = cmdText.slice(0, Math.floor(state.n)); },
+      onComplete: () => { cmdSpan.textContent = cmdText; },
+    }, t + 0.1);
+
+    t += 0.1 + dur + 0.3;
+
+    // --- outputs (instant appear) ---
+    (c.output || []).forEach((out) => {
+      const outLine = addLine(`out-${c.output_color || "info"}`);
+      outLine.textContent = out;
+      tl.to(outLine, { opacity: 1, duration: 0.15 }, t);
+      t += 0.15;
+    });
+
+    t += betweenCmd;
+  });
+
+  tl.to({}, { duration: Math.max(0.1, D - t) }, t);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

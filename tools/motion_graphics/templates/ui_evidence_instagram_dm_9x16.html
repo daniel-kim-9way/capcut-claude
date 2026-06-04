@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Instagram DM motion (9:16 mobile native)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  .phone-card {
+    width: 920px;
+    height: 1700px;
+    background: #000000;
+    border-radius: 54px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 60px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .status-bar {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 44px;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+  .status-icons { display: flex; gap: 10px; align-items: center; }
+  .signal-bars { display: flex; gap: 3px; align-items: flex-end; height: 18px; }
+  .signal-bars span { width: 4px; background: #FFFFFF; border-radius: 1px; }
+  .signal-bars span:nth-child(1) { height: 6px; }
+  .signal-bars span:nth-child(2) { height: 10px; }
+  .signal-bars span:nth-child(3) { height: 14px; }
+  .signal-bars span:nth-child(4) { height: 18px; }
+  .battery-icon {
+    width: 28px; height: 14px;
+    border: 2px solid #FFFFFF; border-radius: 3px;
+    position: relative;
+  }
+  .battery-icon::after {
+    content: ""; position: absolute; right: -5px; top: 3px;
+    width: 3px; height: 4px; background: #FFFFFF; border-radius: 0 1px 1px 0;
+  }
+  .battery-icon::before {
+    content: ""; position: absolute; left: 1px; top: 1px;
+    width: 80%; height: calc(100% - 2px); background: #FFFFFF; border-radius: 1px;
+  }
+
+  /* Header: ← [avatar] [username]   📞 📹 */
+  .chat-header {
+    height: 110px;
+    background: #000000;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    padding: 0 36px;
+    gap: 20px;
+    flex-shrink: 0;
+    color: #FFFFFF;
+  }
+  .header-back { font-size: 46px; font-weight: 300; }
+  .header-avatar {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: #9BA4AE;
+  }
+  .header-user {
+    flex: 1;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .header-active {
+    font-size: 22px;
+    font-weight: 400;
+    color: #8E8E8E;
+    display: block;
+    margin-top: 4px;
+  }
+
+  /* Chat body */
+  .chat-body {
+    flex: 1;
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow: hidden;
+  }
+
+  .bubble {
+    max-width: 640px;
+    padding: 24px 32px;
+    font-size: 36px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    opacity: 0;
+    transform: scale(0.9);
+    transform-origin: bottom left;
+  }
+
+  /* Incoming (left, grey) */
+  .bubble.them {
+    background: #262626;
+    color: #FFFFFF;
+    border-radius: 28px 28px 28px 8px;
+    align-self: flex-start;
+  }
+
+  /* Outgoing (right, Instagram gradient) */
+  .bubble.me {
+    background: linear-gradient(135deg, #FD297B 0%, #9333EA 50%, #5B21B6 100%);
+    color: #FFFFFF;
+    border-radius: 28px 28px 8px 28px;
+    align-self: flex-end;
+    transform-origin: bottom right;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="battery-icon"></div>
+        </div>
+      </div>
+
+      <div class="chat-header">
+        <div class="header-back">←</div>
+        <div class="header-avatar"></div>
+        <div class="header-user">
+          <span id="header-username">@username</span>
+          <span class="header-active" id="header-active">활동 중</span>
+        </div>
+      </div>
+
+      <div class="chat-body" id="chat-body"></div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    username: "@daily_learner",
+    active: "방금 활동",
+    messages: [
+      { from: "them", text: "오늘 진짜 힘들었어 ㅠㅠ" },
+      { from: "me", text: "괜찮아, 같이 커피 한 잔 하자" },
+      { from: "them", text: "ㅠㅠ 고마워" },
+    ],
+    duration: 6.0,
+  };
+
+  document.getElementById("header-username").textContent = P.username || "";
+  document.getElementById("header-active").textContent = P.active || "";
+
+  const msgs = (P.messages || []).slice(0, 5);
+  const body = document.getElementById("chat-body");
+  msgs.forEach((m, i) => {
+    const b = document.createElement("div");
+    b.className = `bubble ${m.from === "me" ? "me" : "them"}`;
+    b.id = `b-${i}`;
+    b.textContent = "";
+    body.appendChild(b);
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  const msgStart = 0.9;
+  const msgCycle = 1.0;
+  const popDur = 0.35;
+  const typeDur = 0.45;
+
+  msgs.forEach((m, i) => {
+    const at = msgStart + i * msgCycle;
+    tl.to(`#b-${i}`, {
+      opacity: 1, scale: 1,
+      duration: popDur,
+      ease: "back.out(1.7)",
+    }, at);
+
+    // 타이핑 효과
+    const state = { n: 0 };
+    const text = m.text || "";
+    tl.to(state, {
+      n: text.length,
+      duration: typeDur,
+      ease: "steps(" + Math.max(1, text.length) + ")",
+      onUpdate: () => {
+        document.getElementById(`b-${i}`).textContent = text.slice(0, Math.floor(state.n));
+      },
+      onComplete: () => {
+        document.getElementById(`b-${i}`).textContent = text;
+      },
+    }, at + popDur * 0.5);
+  });
+
+  const consumed = msgStart + msgs.length * msgCycle;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>logo_marquee motion (16:9 — infinite scrolling logo strip with edge fade mask)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .card {
+    position: relative;
+    width: 1820px;
+    height: 720px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.96);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 30px;
+    padding: 60px 0;
+  }
+
+  .title {
+    text-align: center;
+    font-size: var(--fs-h4);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+
+  /* Marquee viewport — masked edges */
+  .marquee {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right,
+      transparent 0%,
+      #000 12%,
+      #000 88%,
+      transparent 100%);
+            mask-image: linear-gradient(to right,
+      transparent 0%,
+      #000 12%,
+      #000 88%,
+      transparent 100%);
+  }
+
+  .track {
+    display: flex;
+    gap: 36px;
+    width: max-content;
+    will-change: transform;
+  }
+
+  .row-2 .track {
+    /* second row offset for visual texture */
+    padding-left: 200px;
+  }
+
+  .logo-card {
+    flex-shrink: 0;
+    width: 240px;
+    height: 180px;
+    border-radius: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-sizing: border-box;
+    padding: 20px;
+  }
+
+  .logo-symbol {
+    font-weight: 900;
+    font-size: 80px;
+    line-height: 1;
+    letter-spacing: var(--ls-tight);
+  }
+  .logo-label {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: var(--ls-snug);
+    white-space: nowrap;
+  }
+
+  .footer {
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="title" id="title"></div>
+      <div class="marquee" id="row1">
+        <div class="track" id="track1"></div>
+      </div>
+      <div class="marquee row-2" id="row2">
+        <div class="track" id="track2"></div>
+      </div>
+      <div class="footer" id="footer"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const DEFAULT_LOGOS = [
+    { symbol: "N",  label: "Notion",     bg: "#000000", color: "#FFFFFF" },
+    { symbol: "S",  label: "Slack",      bg: "#4A154B", color: "#FFFFFF" },
+    { symbol: "F",  label: "Figma",      bg: "#0ACF83", color: "#FFFFFF" },
+    { symbol: "GH", label: "GitHub",     bg: "#0D1117", color: "#FFFFFF" },
+    { symbol: "L",  label: "Linear",     bg: "#5E6AD2", color: "#FFFFFF" },
+    { symbol: "V",  label: "Vercel",     bg: "#000000", color: "#FFFFFF" },
+    { symbol: "C",  label: "Claude",     bg: "#D77757", color: "#FFFFFF" },
+    { symbol: "G",  label: "ChatGPT",    bg: "#10A37F", color: "#FFFFFF" },
+    { symbol: "D",  label: "Discord",    bg: "#5865F2", color: "#FFFFFF" },
+    { symbol: "Y",  label: "YouTube",    bg: "#FF0000", color: "#FFFFFF" },
+    { symbol: "X",  label: "X",          bg: "#000000", color: "#FFFFFF" },
+    { symbol: "I",  label: "Instagram",  bg: "#E1306C", color: "#FFFFFF" },
+  ];
+
+  const P = window.__params || {};
+  const logos = (Array.isArray(P.logos) && P.logos.length > 0) ? P.logos : DEFAULT_LOGOS;
+
+  document.getElementById("title").textContent = P.title || "함께 쓰는 도구들";
+  document.getElementById("footer").textContent = P.footer || "모든 워크플로우 한 곳에서";
+
+  function makeLogo(it) {
+    const card = document.createElement("div");
+    card.className = "logo-card";
+    card.style.background = it.bg || "#FFFFFF";
+    const sym = document.createElement("div");
+    sym.className = "logo-symbol";
+    sym.style.color = it.color || "#191919";
+    sym.textContent = it.symbol || "";
+    const lab = document.createElement("div");
+    lab.className = "logo-label";
+    lab.style.color = it.color || "#191919";
+    lab.textContent = it.label || "";
+    card.appendChild(sym);
+    card.appendChild(lab);
+    return card;
+  }
+
+  function buildTrack(trackEl, items) {
+    // Duplicate items 2x so a -50% translate creates a seamless loop
+    const seq = [...items, ...items];
+    seq.forEach((it) => trackEl.appendChild(makeLogo(it)));
+    return trackEl;
+  }
+
+  const t1 = buildTrack(document.getElementById("track1"), logos);
+  // Second row uses reversed list for visual variety
+  const t2 = buildTrack(document.getElementById("track2"), [...logos].reverse());
+
+  // Card widths are fixed (240px), gap is fixed (36px), row-2 padding is fixed (200px),
+  // so scrollWidth is independent of font load timing. Safe to init synchronously
+  // — render_motion.py's own document.fonts.ready check happens after __ready=true,
+  // so labels render with Pretendard once the screenshot loop starts.
+  const fullW1 = t1.scrollWidth;
+  const halfW1 = fullW1 / 2;
+  const fullW2 = t2.scrollWidth;
+  const halfW2 = fullW2 / 2;
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration || 7.0;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#title", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+
+  tl.fromTo(t1,
+    { x: 0 },
+    { x: -halfW1, duration: D, ease: "none" },
+    0);
+  tl.fromTo(t2,
+    { x: -halfW2 },
+    { x: 0, duration: D, ease: "none" },
+    0);
+
+  tl.to("#footer", { opacity: 1, duration: 0.5, ease: "power2.out" }, 1.0);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

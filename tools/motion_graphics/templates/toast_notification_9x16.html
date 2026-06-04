@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>toast_notification motion (9:16 — system toast slide-in stack with success/info/error variants)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 220px;
+    gap: 24px;
+  }
+
+  .toast {
+    width: 920px;
+    background: rgba(20, 20, 22, 0.94);
+    backdrop-filter: blur(8px);
+    border-radius: 28px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    padding: 32px 36px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    opacity: 0;
+    transform: translateX(120%);
+  }
+
+  .toast.success { border-left: 6px solid var(--accent-success); }
+  .toast.info    { border-left: 6px solid #5EBEFF; }
+  .toast.error   { border-left: 6px solid var(--accent-error); }
+  .toast.warn    { border-left: 6px solid var(--accent-warning); }
+
+  .icon {
+    flex-shrink: 0;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-size: 32px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .toast.success .icon { background: var(--accent-success); }
+  .toast.info    .icon { background: #5EBEFF; }
+  .toast.error   .icon { background: var(--accent-error); }
+  .toast.warn    .icon { background: var(--accent-warning); color: #1A1A1D; }
+
+  .text {
+    flex: 1;
+    min-width: 0;
+    color: #FFFFFF;
+  }
+  .t-title {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: var(--ls-snug);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .t-body {
+    font-size: 28px;
+    font-weight: 400;
+    color: #C0C0C5;
+    letter-spacing: var(--ls-snug);
+    line-height: 1.4;
+  }
+  .t-close {
+    flex-shrink: 0;
+    color: #6B6B70;
+    font-size: 32px;
+    line-height: 1;
+    padding: 4px;
+  }
+
+  .progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 6px;
+    right: 0;
+    height: 4px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 0 0 28px 28px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 100%;
+    transform-origin: left center;
+    transform: scaleX(1);
+  }
+  .toast.success .progress-fill { background: var(--accent-success); }
+  .toast.info    .progress-fill { background: #5EBEFF; }
+  .toast.error   .progress-fill { background: var(--accent-error); }
+  .toast.warn    .progress-fill { background: var(--accent-warning); }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage"></div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    toasts: [
+      { variant: "success", icon: "✓", title: "결제 완료", body: "Pro 플랜 결제가 완료되었습니다." },
+      { variant: "info",    icon: "i", title: "동기화 중",  body: "팀 데이터를 가져오고 있어요." },
+      { variant: "warn",    icon: "!", title: "한도 임박",  body: "이번 달 사용량이 80%에 도달했습니다." },
+    ],
+    duration: 6.5,
+  };
+
+  const stage = document.getElementById("stage");
+  const toasts = (P.toasts || []).slice(0, 4);
+
+  toasts.forEach((t, i) => {
+    const el = document.createElement("div");
+    el.className = `toast ${t.variant || "info"}`;
+    el.id = `toast-${i}`;
+    el.style.position = "relative";
+    el.innerHTML = `
+      <div class="icon">${t.icon || "i"}</div>
+      <div class="text">
+        <div class="t-title">${t.title || ""}</div>
+        <div class="t-body">${t.body || ""}</div>
+      </div>
+      <div class="t-close">×</div>
+      <div class="progress-bar"><div class="progress-fill" id="pf-${i}"></div></div>
+    `;
+    stage.appendChild(el);
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Slide in toasts with stagger
+  const slideStart = 0.3;
+  const slideCycle = 0.55;
+
+  toasts.forEach((_, i) => {
+    const at = slideStart + i * slideCycle;
+    tl.to(`#toast-${i}`, {
+      opacity: 1,
+      x: 0,
+      duration: 0.55,
+      ease: "back.out(1.4)",
+    }, at);
+
+    // Progress bar drains over remaining duration
+    const drainDur = Math.max(1.5, D - at - 0.5);
+    tl.to(`#pf-${i}`, {
+      scaleX: 0,
+      duration: drainDur,
+      ease: "none",
+    }, at + 0.4);
+  });
+
+  const consumed = slideStart + toasts.length * slideCycle + 0.6;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

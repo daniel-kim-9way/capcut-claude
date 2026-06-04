@@ -1,0 +1,29 @@
+{
+  "filter": {
+    "id": "41C31100-0F01-48d8-B30A-A57D25C1900C",
+    "type": "filter",
+    "flag": 0,
+    "attribute": 0,
+    "name": "",
+    "is_default_name": true,
+    "segments": []
+  },
+  "effect": {
+    "id": "B0CB84BA-BDFA-4e58-B3CC-736AE28CD191",
+    "type": "effect",
+    "flag": 0,
+    "attribute": 0,
+    "name": "",
+    "is_default_name": true,
+    "segments": []
+  },
+  "audio": {
+    "id": "CCEA419D-CC27-4207-8090-224093331B1F",
+    "type": "audio",
+    "flag": 0,
+    "attribute": 0,
+    "name": "",
+    "is_default_name": true,
+    "segments": []
+  }
+}

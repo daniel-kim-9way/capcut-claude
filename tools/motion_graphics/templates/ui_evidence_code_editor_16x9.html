@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Code Editor (16:9 — VSCode/Cursor style with syntax highlighting + typewriter)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  /* Mono code font — system stack matches VSCode default */
+  html, body { width: 1920px; height: 1080px; }
+
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  .editor {
+    width: 1700px;
+    height: 920px;
+    background: #1E1E1E;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  /* Title bar */
+  .title-bar {
+    height: 50px;
+    background: #323233;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .tl-btn { width: 14px; height: 14px; border-radius: 50%; }
+  .tl-red    { background: #FF5F56; }
+  .tl-yellow { background: #FFBD2E; }
+  .tl-green  { background: #27C93F; }
+  .tl-app {
+    flex: 1;
+    text-align: center;
+    color: #B0B0B0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  /* File tab */
+  .tab-bar {
+    height: 44px;
+    background: #252526;
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 22px;
+    background: #1E1E1E;
+    color: #E5E5E5;
+    font-size: 18px;
+    font-weight: 500;
+    border-right: 1px solid #2D2D2D;
+    font-family: "Pretendard", sans-serif;
+  }
+  .tab .dot {
+    width: 8px; height: 8px;
+    background: #FBBF24;
+    border-radius: 50%;
+  }
+
+  /* Editor body */
+  .body {
+    flex: 1;
+    display: flex;
+    background: #1E1E1E;
+    overflow: hidden;
+    font-family: "Consolas", "Menlo", "Monaco", "Courier New", monospace;
+    font-size: 28px;
+    line-height: 1.5;
+  }
+
+  .gutter {
+    width: 80px;
+    flex-shrink: 0;
+    background: #1E1E1E;
+    color: #5A5A5A;
+    text-align: right;
+    padding: 30px 18px 30px 0;
+    font-weight: 500;
+    box-sizing: border-box;
+    user-select: none;
+  }
+  .gutter .gn {
+    height: 42px;
+    line-height: 42px;
+    opacity: 0;
+  }
+
+  .code-area {
+    flex: 1;
+    padding: 30px 30px 30px 18px;
+    box-sizing: border-box;
+    color: #D4D4D4;
+  }
+  .line {
+    height: 42px;
+    line-height: 42px;
+    opacity: 0;
+    white-space: pre;
+  }
+
+  /* VSCode dark+ token colors */
+  .tk-keyword  { color: #C586C0; }       /* function, const, return, if */
+  .tk-string   { color: #CE9178; }       /* "..." */
+  .tk-number   { color: #B5CEA8; }       /* 42 */
+  .tk-comment  { color: #6A9955; font-style: italic; }
+  .tk-fn       { color: #DCDCAA; }       /* function name */
+  .tk-prop     { color: #9CDCFE; }       /* variable, parameter */
+  .tk-type     { color: #4EC9B0; }       /* class, type */
+  .tk-punct    { color: #D4D4D4; }
+  .tk-tag      { color: #569CD6; }       /* tag-like */
+
+  .cursor {
+    display: inline-block;
+    width: 4px; height: 30px;
+    background: #D4D4D4;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="editor" id="editor">
+
+      <div class="title-bar">
+        <div class="tl-btn tl-red"></div>
+        <div class="tl-btn tl-yellow"></div>
+        <div class="tl-btn tl-green"></div>
+        <div class="tl-app" id="tl-app">— Cursor</div>
+      </div>
+
+      <div class="tab-bar">
+        <div class="tab"><div class="dot"></div><span id="tab-name">script.ts</span></div>
+      </div>
+
+      <div class="body">
+        <div class="gutter" id="gutter"></div>
+        <div class="code-area" id="code"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    app_label: "— Cursor",
+    file: "script.ts",
+    // Each line is an array of tokens [{cls, text}]; the FIRST line types out, others fade in.
+    lines: [
+      [{cls:"tk-comment", text:"// 결국 한 줄이 다 한다"}],
+      [{cls:"tk-keyword", text:"const "}, {cls:"tk-prop", text:"answer"}, {cls:"tk-punct", text:" = "}, {cls:"tk-fn", text:"summarize"}, {cls:"tk-punct", text:"("}, {cls:"tk-prop", text:"meeting"}, {cls:"tk-punct", text:");"}],
+      [{cls:"tk-keyword", text:"if "}, {cls:"tk-punct", text:"("}, {cls:"tk-prop", text:"answer"}, {cls:"tk-punct", text:".length > "}, {cls:"tk-number", text:"0"}, {cls:"tk-punct", text:") {"}],
+      [{cls:"tk-punct", text:"  "}, {cls:"tk-prop", text:"console"}, {cls:"tk-punct", text:"."}, {cls:"tk-fn", text:"log"}, {cls:"tk-punct", text:"("}, {cls:"tk-string", text:"\"기록 완료\""}, {cls:"tk-punct", text:");"}],
+      [{cls:"tk-punct", text:"}"}],
+    ],
+    duration: 6.5,
+  };
+
+  document.getElementById("tl-app").textContent = P.app_label || "— Cursor";
+  document.getElementById("tab-name").textContent = P.file || "untitled";
+
+  const gutter = document.getElementById("gutter");
+  const code = document.getElementById("code");
+
+  const lines = (P.lines || []).slice(0, 12);
+  lines.forEach((tokens, i) => {
+    const gn = document.createElement("div");
+    gn.className = "gn";
+    gn.id = `gn-${i}`;
+    gn.textContent = String(i + 1);
+    gutter.appendChild(gn);
+
+    const ln = document.createElement("div");
+    ln.className = "line";
+    ln.id = `line-${i}`;
+    code.appendChild(ln);
+  });
+
+  function renderTokens(lineEl, tokens) {
+    lineEl.innerHTML = tokens.map((t) => `<span class="${t.cls || ''}">${t.text}</span>`).join("");
+  }
+
+  // First line is typewriter: build incrementally character by character.
+  // For typewriter we need per-character control while keeping color spans.
+  // Approach: build full HTML, then substring by char count via clone trick.
+  function buildTypewriterFor(lineEl, tokens, state) {
+    // Render tokens then animate by adjusting how many chars are visible
+    const fullText = tokens.map((t) => t.text).join("");
+    // Pre-render then truncate via slice. To keep colors, render token-aware:
+    return (n) => {
+      let acc = 0;
+      const html = tokens.map((t) => {
+        const tlen = t.text.length;
+        if (acc >= n) { acc += tlen; return ""; }
+        const remain = n - acc;
+        const slice = t.text.slice(0, Math.min(tlen, remain));
+        acc += tlen;
+        return `<span class="${t.cls || ''}">${slice}</span>`;
+      }).join("");
+      lineEl.innerHTML = html + (n < fullText.length ? '<span class="cursor"></span>' : "");
+      return fullText.length;
+    };
+  }
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#editor", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  let t = 0.8;
+
+  // Line 0: typewriter
+  if (lines.length > 0) {
+    const ln0 = document.getElementById("line-0");
+    const gn0 = document.getElementById("gn-0");
+    tl.to(ln0, { opacity: 1, duration: 0.1 }, t);
+    tl.to(gn0, { opacity: 1, duration: 0.1 }, t);
+
+    const fullText = lines[0].map((tk) => tk.text).join("");
+    const renderer = buildTypewriterFor(ln0, lines[0]);
+    const charState = { n: 0 };
+    const dur = Math.max(0.4, fullText.length * 0.04);
+    tl.to(charState, {
+      n: fullText.length,
+      duration: dur,
+      ease: "steps(" + Math.max(1, fullText.length) + ")",
+      onUpdate: () => renderer(Math.floor(charState.n)),
+      onComplete: () => {
+        // remove cursor at end
+        renderTokens(ln0, lines[0]);
+      },
+    }, t + 0.05);
+    t += 0.05 + dur + 0.3;
+  }
+
+  // Remaining lines: stagger fade in (preserves syntax color)
+  for (let i = 1; i < lines.length; i++) {
+    const ln = document.getElementById(`line-${i}`);
+    const gn = document.getElementById(`gn-${i}`);
+    renderTokens(ln, lines[i]);
+    tl.to(gn, { opacity: 1, duration: 0.18 }, t);
+    tl.to(ln, { opacity: 1, duration: 0.25, ease: "power2.out" }, t + 0.02);
+    t += 0.32;
+  }
+
+  tl.to({}, { duration: Math.max(0.1, D - t) }, t);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

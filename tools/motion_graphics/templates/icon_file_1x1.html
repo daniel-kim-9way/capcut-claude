@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>icon_file motion (1:1 — file/PDF/MD icon with extension label)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .stage {
+    flex-direction: column;
+    gap: 50px;
+  }
+
+  /* The file shape — main body + corner fold */
+  .file-icon {
+    position: relative;
+    width: 380px;
+    height: 480px;
+    opacity: 0;
+    transform: scale(0.7) translateY(40px);
+  }
+  .file-body {
+    width: 100%;
+    height: 100%;
+    background: #FFFFFF;
+    border-radius: 22px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Corner fold (top-right triangle) */
+  .file-fold {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 110px;
+    height: 110px;
+    background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.10) 50%);
+    border-bottom-left-radius: 22px;
+  }
+  .file-fold::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 110px;
+    height: 110px;
+    background: #E0DEDA;
+    clip-path: polygon(100% 0, 100% 100%, 0 0);
+    border-bottom-left-radius: 22px;
+  }
+
+  /* Extension label band — bottom of file */
+  .ext-label {
+    position: absolute;
+    bottom: 70px;
+    left: 30px;
+    right: 30px;
+    border-radius: 10px;
+    padding: 18px 0;
+    text-align: center;
+    color: #FFFFFF;
+    font-size: 84px;
+    font-weight: var(--fw-black);
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
+  /* Content lines (top of file, dim) */
+  .content-lines {
+    position: absolute;
+    top: 56px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .content-lines .line {
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.10);
+  }
+  .content-lines .line:nth-child(1) { width: 70%; }
+  .content-lines .line:nth-child(2) { width: 90%; }
+  .content-lines .line:nth-child(3) { width: 60%; }
+  .content-lines .line:nth-child(4) { width: 80%; }
+
+  .file-name {
+    font-size: var(--fs-h3);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+    transform: translateY(14px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="file-icon" id="card">
+      <div class="file-body">
+        <div class="file-fold"></div>
+        <div class="content-lines">
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+          <div class="line"></div>
+        </div>
+        <div class="ext-label" id="ext-label">PDF</div>
+      </div>
+    </div>
+    <div class="file-name" id="file-name">프로젝트 회의록</div>
+  </div>
+
+<script>
+(() => {
+  // Extension → color mapping (built-in palette)
+  const EXT_COLORS = {
+    PDF:  "#E2231A",
+    MD:   "#3B82F6",
+    DOC:  "#2B579A",
+    DOCX: "#2B579A",
+    XLS:  "#107C41",
+    XLSX: "#107C41",
+    PPT:  "#D24726",
+    TXT:  "#6B6B70",
+    ZIP:  "#A855F7",
+    JSON: "#FACC15",
+    CSV:  "#0F766E",
+  };
+
+  const P = window.__params || {
+    extension: "PDF",
+    file_name: "프로젝트 회의록",
+    duration: 3.5,
+  };
+
+  const ext = (P.extension || "PDF").toUpperCase();
+  const color = P.ext_color || EXT_COLORS[ext] || "#6B6B70";
+
+  const extLabel = document.getElementById("ext-label");
+  extLabel.textContent = ext;
+  extLabel.style.background = color;
+
+  document.getElementById("file-name").textContent = P.file_name || "";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // File pop-in with bounce
+  tl.to("#card", {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    duration: 0.55,
+    ease: "back.out(1.6)",
+  }, 0);
+
+  // Subtle hover wobble
+  tl.to(".file-body", {
+    rotation: 2,
+    duration: 0.6,
+    yoyo: true,
+    repeat: 1,
+    ease: "power2.inOut",
+  }, 0.7);
+
+  // File name fade up
+  tl.to("#file-name", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  tl.to({}, { duration: Math.max(0.1, D - 2.0) }, 2.0);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

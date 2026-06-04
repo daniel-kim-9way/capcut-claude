@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Notion motion (16:9 desktop document)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* Notion 데스크톱 문서 UI — 왼쪽 사이드바 + 중앙 문서 */
+  .card {
+    width: 1600px;
+    height: 950px;
+    background: #FFFFFF;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .sidebar {
+    width: 280px;
+    background: #F7F6F3;
+    padding: 32px 20px;
+    border-right: 1px solid #EDECE9;
+    flex-shrink: 0;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    color: #37352F;
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .sidebar-item.active {
+    background: rgba(55, 53, 47, 0.08);
+  }
+  .sidebar-icon {
+    width: 22px;
+    height: 22px;
+    background: #ACA7A1;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .document {
+    flex: 1;
+    padding: 80px 100px;
+    overflow: hidden;
+  }
+
+  .doc-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+
+  .doc-title {
+    font-size: 64px;
+    font-weight: 800;
+    color: #37352F;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 50px;
+    min-height: 72px;
+  }
+
+  .bullet-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 24px;
+    opacity: 0;
+  }
+  .bullet-dot {
+    font-size: 32px;
+    color: #37352F;
+    line-height: 1.3;
+    flex-shrink: 0;
+  }
+  .bullet-text {
+    font-size: 34px;
+    font-weight: 400;
+    color: #37352F;
+    line-height: 1.4;
+    flex: 1;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+
+      <div class="sidebar">
+        <div class="sidebar-item"><div class="sidebar-icon"></div>받은 편지함</div>
+        <div class="sidebar-item"><div class="sidebar-icon"></div>개인</div>
+        <div class="sidebar-item active"><div class="sidebar-icon"></div>프로젝트</div>
+        <div class="sidebar-item"><div class="sidebar-icon"></div>팀 스페이스</div>
+      </div>
+
+      <div class="document">
+        <div class="doc-icon" id="doc-icon">📝</div>
+        <div class="doc-title" id="doc-title"></div>
+        <div class="bullet-item" id="bi-0"><div class="bullet-dot">•</div><div class="bullet-text" id="bt-0"></div></div>
+        <div class="bullet-item" id="bi-1"><div class="bullet-dot">•</div><div class="bullet-text" id="bt-1"></div></div>
+        <div class="bullet-item" id="bi-2"><div class="bullet-dot">•</div><div class="bullet-text" id="bt-2"></div></div>
+        <div class="bullet-item" id="bi-3"><div class="bullet-dot">•</div><div class="bullet-text" id="bt-3"></div></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    page_title: "프로젝트 회의 요약",
+    page_icon: "📝",
+    items: ["결정: A안 채택", "액션: UI 목업 제작", "책임자: 김팀장", "기간: 11월 말까지"],
+    duration: 6.5,
+  };
+
+  document.getElementById("doc-icon").textContent = P.page_icon || "📝";
+  const pageTitle = P.page_title || "";
+  const items = (P.items || []).slice(0, 4);
+
+  items.forEach((txt, i) => {
+    document.getElementById(`bt-${i}`).textContent = txt;
+  });
+  for (let i = items.length; i < 4; i++) {
+    document.getElementById(`bi-${i}`).style.display = "none";
+  }
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // Document title typewriter
+  const titleState = { n: 0 };
+  tl.to(titleState, {
+    n: pageTitle.length,
+    duration: 0.9,
+    ease: "steps(" + Math.max(1, pageTitle.length) + ")",
+    onUpdate: () => {
+      document.getElementById("doc-title").textContent = pageTitle.slice(0, Math.floor(titleState.n));
+    },
+    onComplete: () => {
+      document.getElementById("doc-title").textContent = pageTitle;
+    },
+  }, 0.7);
+
+  // Bullets fade in sequentially
+  const bulletStart = 1.8;
+  const bulletCycle = 0.6;
+  items.forEach((_, i) => {
+    tl.to(`#bi-${i}`, { opacity: 1, duration: 0.4, ease: "power2.out" }, bulletStart + i * bulletCycle);
+  });
+
+  const consumed = bulletStart + items.length * bulletCycle + 0.2;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

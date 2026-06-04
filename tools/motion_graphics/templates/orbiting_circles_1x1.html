@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>orbiting_circles motion (1:1 — central hub + N satellite icons rotating)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    position: relative;
+    width: 1000px;
+    height: 1000px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    overflow: hidden;
+  }
+
+  /* Orbit visual rings (decorative SVG circles) */
+  svg.rings {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  circle.ring {
+    fill: none;
+    stroke: rgba(255,255,255,0.06);
+    stroke-width: 2;
+  }
+
+  .center-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hub {
+    width: 240px;
+    height: 240px;
+    border-radius: 56px;
+    background: var(--accent-purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-weight: 900;
+    font-size: 130px;
+    line-height: 1;
+    letter-spacing: var(--ls-tight);
+    opacity: 0;
+    transform: scale(0.7);
+    box-shadow: 0 0 60px rgba(179, 102, 255, 0.45);
+    z-index: 4;
+  }
+
+  /* Orbit container — rotates around center */
+  .orbit {
+    position: absolute;
+    inset: 0;
+    transform-origin: center;
+  }
+
+  .satellite {
+    position: absolute;
+    width: 130px;
+    height: 130px;
+    border-radius: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 60px;
+    line-height: 1;
+    letter-spacing: var(--ls-tight);
+    color: #FFFFFF;
+    opacity: 0;
+    transform-origin: center;
+  }
+
+  .label {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <svg class="rings" viewBox="0 0 1000 1000">
+        <circle class="ring" cx="500" cy="500" r="220"/>
+        <circle class="ring" cx="500" cy="500" r="340"/>
+      </svg>
+
+      <div class="center-wrap">
+        <div class="hub" id="hub">●</div>
+      </div>
+
+      <!-- inner orbit (4 satellites) -->
+      <div class="orbit" id="orbitInner"></div>
+      <!-- outer orbit (counter-rotating, 6 satellites) -->
+      <div class="orbit" id="orbitOuter"></div>
+
+      <div class="label" id="label"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    hub: { symbol: "●", bg: "#B366FF", color: "#FFFFFF" },
+    label: "통합 도구",
+    inner: [
+      { symbol: "N", bg: "#000000", color: "#FFFFFF" },
+      { symbol: "S", bg: "#4A154B", color: "#FFFFFF" },
+      { symbol: "G", bg: "#1A73E8", color: "#FFFFFF" },
+      { symbol: "F", bg: "#0866FF", color: "#FFFFFF" },
+    ],
+    outer: [
+      { symbol: "C", bg: "#D77757", color: "#FFFFFF" },
+      { symbol: "X", bg: "#000000", color: "#FFFFFF" },
+      { symbol: "Y", bg: "#FF0000", color: "#FFFFFF" },
+      { symbol: "I", bg: "#E1306C", color: "#FFFFFF" },
+      { symbol: "D", bg: "#5865F2", color: "#FFFFFF" },
+      { symbol: "L", bg: "#0A66C2", color: "#FFFFFF" },
+    ],
+    duration: 6.0,
+  };
+
+  // Hub
+  const hub = document.getElementById("hub");
+  if (P.hub) {
+    hub.textContent = P.hub.symbol || "●";
+    if (P.hub.bg) hub.style.background = P.hub.bg;
+    if (P.hub.color) hub.style.color = P.hub.color;
+  }
+  document.getElementById("label").textContent = P.label || "";
+
+  // Build satellite groups; positions are computed relative to card center (500, 500 in 1000-canvas)
+  function placeOnOrbit(container, items, radius) {
+    items.forEach((it, i) => {
+      const angle = (i / items.length) * Math.PI * 2 - Math.PI / 2;
+      const cx = 500 + Math.cos(angle) * radius;
+      const cy = 500 + Math.sin(angle) * radius;
+      const s = document.createElement("div");
+      s.className = "satellite";
+      // Sat is 130px, so offset by half to center on (cx, cy)
+      s.style.left = (cx - 65) + "px";
+      s.style.top = (cy - 65) + "px";
+      s.style.background = it.bg || "#FFFFFF";
+      s.style.color = it.color || "#191919";
+      s.textContent = it.symbol || "";
+      container.appendChild(s);
+    });
+  }
+
+  const innerEls = document.getElementById("orbitInner");
+  const outerEls = document.getElementById("orbitOuter");
+  placeOnOrbit(innerEls, P.inner || [], 220);
+  placeOnOrbit(outerEls, P.outer || [], 340);
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#hub", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 0.4);
+
+  // Stagger satellites in
+  tl.to("#orbitInner .satellite", {
+    opacity: 1, duration: 0.35, stagger: 0.08, ease: "back.out(1.6)",
+  }, 0.7);
+  tl.to("#orbitOuter .satellite", {
+    opacity: 1, duration: 0.35, stagger: 0.06, ease: "back.out(1.6)",
+  }, 1.0);
+
+  // Continuous orbit rotation (driven by timeline progress so frame-stepping renders correctly)
+  tl.to("#orbitInner", {
+    rotate: 90,
+    duration: D,
+    ease: "none",
+    transformOrigin: "500px 500px",
+  }, 0);
+  tl.to("#orbitOuter", {
+    rotate: -75,
+    duration: D,
+    ease: "none",
+    transformOrigin: "500px 500px",
+  }, 0);
+
+  // Counter-rotate satellite content so labels stay upright
+  tl.to("#orbitInner .satellite", {
+    rotate: -90,
+    duration: D,
+    ease: "none",
+    transformOrigin: "center",
+  }, 0);
+  tl.to("#orbitOuter .satellite", {
+    rotate: 75,
+    duration: D,
+    ease: "none",
+    transformOrigin: "center",
+  }, 0);
+
+  tl.to("#label", { opacity: 1, duration: 0.5, ease: "power2.out" }, 1.6);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

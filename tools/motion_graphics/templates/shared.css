@@ -1,0 +1,260 @@
+/* shared.css — Motion graphics 공통 토큰 (2026-04-24)
+ *
+ * 사용:
+ *   <link rel="stylesheet" href="shared.css">
+ *
+ * 파일 URL 프로토콜(file://)에서 relative path stylesheet link 로드 가능.
+ * 신규 템플릿에서 사용 권장. 기존 12개 템플릿은 inline 유지 (마이그레이션 비용 회피).
+ */
+
+/* ========== Fonts: 로컬 Pretendard 전체 로드 ========== */
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 400;
+  src: url("file:///C:/Users/kbjhh/AppData/Local/Microsoft/Windows/Fonts/Pretendard-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 500;
+  src: url("file:///C:/Users/kbjhh/AppData/Local/Microsoft/Windows/Fonts/Pretendard-Medium.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 700;
+  src: url("file:///C:/Users/kbjhh/AppData/Local/Microsoft/Windows/Fonts/Pretendard-Bold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 800;
+  src: url("file:///C:/Users/kbjhh/AppData/Local/Microsoft/Windows/Fonts/Pretendard-ExtraBold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 900;
+  src: url("file:///C:/Users/kbjhh/AppData/Local/Microsoft/Windows/Fonts/Pretendard-Black.otf") format("opentype");
+}
+
+/* ========== CSS Custom Properties (Design Tokens) ========== */
+:root {
+  /* Backgrounds */
+  --chroma-blue: #0000FF;
+  --bg-dark: #0A0A0B;
+  --bg-dark-2: #1E1E1E;
+  --bg-white: #FFFFFF;
+
+  /* Text */
+  --text-primary: #FFFFFF;
+  --text-dark: #191919;
+  --text-muted: #6B6B70;
+  --text-muted-dark: #8A8A8E;
+
+  /* Accent */
+  --accent-purple: #B366FF;
+  --accent-purple-dim: #9333EA;
+  --accent-pink: #FD297B;
+  --accent-success: #27C93F;
+  --accent-warning: #FFBD2E;
+  --accent-error: #FF5F56;
+
+  /* Brand — messaging platforms */
+  --brand-kakaotalk: #FAE100;
+  --brand-imessage: #0A84FF;
+  --brand-whatsapp: #25D366;
+  --brand-slack: #4A154B;
+  --brand-discord: #5865F2;
+
+  /* Shadows */
+  --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.25);
+  --shadow-card-heavy: 0 12px 60px rgba(0, 0, 0, 0.35);
+
+  /* Border radii */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-xl: 54px;
+
+  /* Padding scale (for cards at 1080/1920/etc. canvases) */
+  --pad-card: 40px 60px;
+  --pad-card-lg: 80px 100px;
+}
+
+/* ========== Base reset (blue chroma + Pretendard default) ========== */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--chroma-blue);
+  overflow: hidden;
+  font-family: "Pretendard", sans-serif;
+}
+
+/* Common stage centering helper */
+.stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Common mobile-phone status bar helpers (9:16 templates) */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 44px;
+  height: 60px;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 26px;
+}
+.status-bar.light { color: var(--text-dark); }
+.status-bar.dark { color: var(--text-primary); }
+
+.status-icons { display: flex; gap: 10px; align-items: center; }
+.signal-bars { display: flex; gap: 3px; align-items: flex-end; height: 18px; }
+.signal-bars span { width: 4px; border-radius: 1px; }
+.signal-bars span:nth-child(1) { height: 6px; }
+.signal-bars span:nth-child(2) { height: 10px; }
+.signal-bars span:nth-child(3) { height: 14px; }
+.signal-bars span:nth-child(4) { height: 18px; }
+.status-bar.light .signal-bars span { background: var(--text-dark); }
+.status-bar.dark  .signal-bars span { background: var(--text-primary); }
+
+.battery-icon {
+  width: 28px; height: 14px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  position: relative;
+}
+.battery-icon::after {
+  content: ""; position: absolute; right: -5px; top: 3px;
+  width: 3px; height: 4px; background: currentColor; border-radius: 0 1px 1px 0;
+}
+.battery-icon::before {
+  content: ""; position: absolute; left: 1px; top: 1px;
+  width: 80%; height: calc(100% - 2px); background: currentColor; border-radius: 1px;
+}
+
+/* ============================================================
+ * Themes (2026-04-25 K-extension)
+ * ------------------------------------------------------------
+ * 카드 컨테이너에 .theme-dark 또는 .theme-light 클래스를 붙이면
+ * --bg-card / --text-card / --text-card-muted 가 자동으로 매핑됩니다.
+ * 신규 템플릿에서 다크/라이트 변형이 필요할 때 사용.
+ * ============================================================ */
+:root {
+  --bg-light: #FFFFFF;
+  --bg-light-2: #F7F7F7;
+  --bg-light-3: #ECECEC;
+  --text-on-light: #191919;
+  --text-on-light-muted: #606060;
+  --text-on-light-dim: #8E8E8E;
+}
+
+.theme-dark {
+  --bg-card: var(--bg-dark);
+  --text-card: var(--text-primary);
+  --text-card-muted: var(--text-muted);
+  --text-card-dim: var(--text-muted-dark);
+}
+.theme-light {
+  --bg-card: var(--bg-light);
+  --text-card: var(--text-on-light);
+  --text-card-muted: var(--text-on-light-muted);
+  --text-card-dim: var(--text-on-light-dim);
+}
+
+/* ============================================================
+ * Easing tokens
+ * ------------------------------------------------------------
+ * CSS는 cubic-bezier 문자열로, GSAP는 JS easing string으로.
+ * 두 측을 같은 곡선으로 맞추기 위해 페어링 표 (이 주석을 GSAP 호출에 참조):
+ *
+ *   CSS variable      | GSAP equivalent      | 사용처
+ *   ------------------+----------------------+------------------------
+ *   --ease-pop        | "back.out(1.8)"      | bubble pop, icon entry
+ *   --ease-bounce     | "back.out(2)"        | strong checkbox snap
+ *   --ease-natural    | "power3.out"         | card slide-up entry
+ *   --ease-snappy     | "power2.out"         | quick fade-in
+ *   --ease-smooth     | "power2.inOut"       | wobble / yoyo / pulse
+ *   --ease-decel      | "power3.inOut"       | count-down dramatic
+ *
+ * 새 템플릿 작성 시 GSAP 호출에 위 string을 그대로 사용하여 일관성 유지.
+ * ============================================================ */
+:root {
+  --ease-pop:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce:  cubic-bezier(0.16, 1.36, 0.5, 1);
+  --ease-natural: cubic-bezier(0.32, 0.72, 0,    1);
+  --ease-snappy:  cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-smooth:  cubic-bezier(0.45, 0,    0.55, 1);
+  --ease-decel:   cubic-bezier(0.65, 0,    0.35, 1);
+
+  /* Common durations (seconds for JS, ms for CSS — two views of same intent) */
+  --dur-fast: 0.3s;
+  --dur-base: 0.5s;
+  --dur-slow: 0.9s;
+  --dur-hero: 1.6s;
+}
+
+/* ============================================================
+ * Type scale
+ * ------------------------------------------------------------
+ * Hero 영상(1920×1080 / 1080×1920)에서 보일 사이즈를 가정.
+ * 작은 1:1 카드에서는 비율 줄여 사용 가능 (90% scale 추천).
+ * ============================================================ */
+:root {
+  /* Display: hero number, full-screen takeover */
+  --fs-hero:       240px;
+  --fs-display:    180px;
+  --fs-display-sm: 140px;
+
+  /* Headings */
+  --fs-h1:  92px;
+  --fs-h2:  64px;
+  --fs-h3:  44px;
+  --fs-h4:  38px;
+  --fs-h5:  32px;
+
+  /* Body */
+  --fs-body-lg: 32px;
+  --fs-body:    28px;
+  --fs-body-sm: 22px;
+
+  /* Micro */
+  --fs-meta:   18px;
+  --fs-status: 26px;
+  --fs-axis:   22px;
+
+  /* Letter spacing */
+  --ls-tight: -0.03em;
+  --ls-snug:  -0.01em;
+  --ls-wide:  0.02em;
+  --ls-wider: 0.06em;
+
+  /* Weights */
+  --fw-regular:    400;
+  --fw-medium:     500;
+  --fw-bold:       700;
+  --fw-extrabold:  800;
+  --fw-black:      900;
+
+  /* Line heights */
+  --lh-tight: 1;
+  --lh-snug:  1.2;
+  --lh-base:  1.4;
+  --lh-loose: 1.6;
+}
+
+/* ============================================================
+ * Card primitives — 신규 템플릿이 즉시 활용 가능한 베이스 클래스
+ * ------------------------------------------------------------
+ * <div class="card-base theme-dark">...</div>
+ *   → 다크 카드 + 둥근 모서리 + 그림자 + 기본 패딩
+ * ============================================================ */
+.card-base {
+  background: var(--bg-card, var(--bg-dark));
+  color: var(--text-card, var(--text-primary));
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+}

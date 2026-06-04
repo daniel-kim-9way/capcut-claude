@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Discord motion (9:16 mobile)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .phone-card {
+    width: 920px;
+    height: 1700px;
+    background: #313338;
+    border-radius: 56px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-card-heavy);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .status-bar.dark { background: #313338; }
+
+  .chat-header {
+    height: 110px;
+    background: #2B2D31;
+    border-bottom: 1px solid #1F2024;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    gap: 14px;
+    flex-shrink: 0;
+    color: #F2F3F5;
+  }
+  .header-back {
+    font-size: 44px;
+    font-weight: 300;
+  }
+  .header-channel {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .ch-hash {
+    font-size: 36px;
+    color: #80848E;
+    font-weight: 300;
+  }
+  .channel-name {
+    font-size: 30px;
+    font-weight: 700;
+  }
+
+  .messages {
+    flex: 1;
+    padding: 30px 32px;
+    overflow: hidden;
+  }
+  .msg {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    opacity: 0;
+  }
+  .m-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--brand-discord);
+    flex-shrink: 0;
+  }
+  .m-body { flex: 1; }
+  .m-meta {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .m-name {
+    font-size: 26px;
+    font-weight: 500;
+    color: #F2F3F5;
+  }
+  .m-time { font-size: 18px; color: #949BA4; }
+  .m-text {
+    font-size: 30px;
+    color: #DBDEE1;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="status-bar dark">
+        <span>9:41</span>
+        <div class="status-icons">
+          <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="battery-icon"></div>
+        </div>
+      </div>
+
+      <div class="chat-header">
+        <div class="header-back">←</div>
+        <div class="header-channel">
+          <span class="ch-hash">#</span>
+          <span class="channel-name" id="channel-name">프로젝트</span>
+        </div>
+      </div>
+
+      <div class="messages">
+        <div class="msg" id="m-0"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-0"></span><span class="m-time" id="t-0"></span></div><div class="m-text" id="x-0"></div></div></div>
+        <div class="msg" id="m-1"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-1"></span><span class="m-time" id="t-1"></span></div><div class="m-text" id="x-1"></div></div></div>
+        <div class="msg" id="m-2"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-2"></span><span class="m-time" id="t-2"></span></div><div class="m-text" id="x-2"></div></div></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    channel: "프로젝트",
+    messages: [
+      { name: "@dev_kim", time: "오늘 15:42", text: "배포 완료했습니다 🚀" },
+      { name: "@designer_lee", time: "오늘 15:43", text: "확인했어요!" },
+      { name: "@pm_park", time: "오늘 15:45", text: "내일 회고 3시" },
+    ],
+    duration: 6.0,
+  };
+
+  document.getElementById("channel-name").textContent = P.channel || "";
+  const msgs = (P.messages || []).slice(0, 3);
+  msgs.forEach((m, i) => {
+    document.getElementById(`n-${i}`).textContent = m.name || "";
+    document.getElementById(`t-${i}`).textContent = m.time || "";
+    document.getElementById(`x-${i}`).textContent = m.text || "";
+  });
+  for (let i = msgs.length; i < 3; i++) document.getElementById(`m-${i}`).style.display = "none";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+  const msgStart = 0.9, msgCycle = 1.0;
+  msgs.forEach((_, i) => {
+    tl.to(`#m-${i}`, { opacity: 1, duration: 0.4, ease: "power2.out" }, msgStart + i * msgCycle);
+  });
+  const consumed = msgStart + msgs.length * msgCycle + 0.2;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

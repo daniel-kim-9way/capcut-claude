@@ -1,0 +1,26 @@
+# /capcut 파이프라인 의존성
+
+# CapCut 드래프트 빌더 (Step 1)
+pycapcut>=0.5.0
+
+# STT (Step 1)
+requests>=2.31.0               # ElevenLabs Scribe (기본 STT 엔진) + FunnelMaster
+faster-whisper>=1.0.0          # --stt-engine whisper 사용 시에만 필요 (옵션)
+
+# B-roll 이미지 생성 (Step 3)
+google-genai>=0.3.0            # Gemini 이미지 API
+
+# Motion Graphics 렌더 (Step 3 motion variant + build_catalog 썸네일)
+playwright>=1.45.0
+# 설치 후 `playwright install chromium` 1회 실행 필요
+
+# 이미지 후처리 (Step 3 chroma_remove + text_card)
+Pillow>=10.0.0
+numpy>=1.26.0
+
+# 환경변수 로딩 (Step 6 FunnelMaster 업로더)
+python-dotenv>=1.0.0
+
+# (선택) Step 3-B Persona 리뷰 자동화
+# 미설치 시 broll_reviewer가 prompt 파일을 생성 → 외부 LLM(Claude Code/Codex)이 실행
+anthropic>=0.40.0

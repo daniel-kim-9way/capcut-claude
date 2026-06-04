@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>stat_card motion composition (16:9 horizontal bar)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* 16:9 가로 bar — 카드 자체가 4.7:1 비율이라 실제 세로 영상에 얹힐 때 "가로 bar" 느낌 */
+  .card {
+    width: 1700px;
+    height: 360px;
+    background: #0A0A0B;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 30px 60px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .label {
+    font-size: 32px;
+    font-weight: 500;
+    color: #6B6B70;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .number {
+    font-weight: 900;
+    color: #FFFFFF;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .number.top { font-size: 180px; }
+  .number.bottom { font-size: 220px; position: relative; }
+
+  .arrow {
+    font-size: 120px;
+    color: #FFFFFF;
+    line-height: 1;
+    font-weight: 300;
+    flex: 0 0 auto;
+  }
+
+  .underline-accent {
+    position: absolute;
+    left: -6%;
+    right: -6%;
+    bottom: -14px;
+    height: 8px;
+    background: #B366FF;
+    border-radius: 4px;
+    transform-origin: left center;
+    transform: scaleX(0);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="col" id="col-left" style="opacity:0;">
+        <div class="label">__LABEL_TOP__</div>
+        <div class="number top" id="num-top">0</div>
+      </div>
+      <div class="arrow" id="arrow" style="opacity:0;">→</div>
+      <div class="col" id="col-right" style="opacity:0;">
+        <div class="label">__LABEL_BOTTOM__</div>
+        <div class="number bottom" id="num-bottom">
+          <span id="num-bottom-text">0</span>
+          <div class="underline-accent" id="underline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    top_number: 10, top_suffix: "개",
+    bottom_number: 4, bottom_suffix: "개",
+    duration: 5.5,
+  };
+
+  document.getElementById("num-bottom-text").textContent =
+    P.top_number + (P.bottom_suffix || "");
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+  tl.to("#col-left", { opacity: 1, duration: 0.3, ease: "power2.out" }, 0.6);
+
+  const topObj = { v: 0 };
+  tl.to(topObj, {
+    v: P.top_number, duration: 0.9, ease: "power2.out",
+    onUpdate: () => {
+      document.getElementById("num-top").textContent =
+        Math.round(topObj.v) + (P.top_suffix || "");
+    },
+  }, 0.9);
+
+  tl.to("#arrow", { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.9);
+  tl.to("#col-right", { opacity: 1, duration: 0.3, ease: "power2.out" }, 2.2);
+
+  const bottomObj = { v: P.top_number };
+  tl.to(bottomObj, {
+    v: P.bottom_number, duration: 1.2, ease: "power3.inOut",
+    onUpdate: () => {
+      document.getElementById("num-bottom-text").textContent =
+        Math.round(bottomObj.v) + (P.bottom_suffix || "");
+    },
+  }, 2.5);
+
+  tl.to("#underline", { scaleX: 1, duration: 0.5, ease: "power2.out" }, 3.7);
+  tl.to({}, { duration: Math.max(0.1, D - 4.2) }, 4.2);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

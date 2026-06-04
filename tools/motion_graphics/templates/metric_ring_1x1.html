@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>metric_ring motion (1:1 — circular percent gauge)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    width: 900px;
+    height: 900px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    padding: 60px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 540px;
+    height: 540px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  svg.ring {
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  circle.track {
+    fill: transparent;
+    stroke: #2A2A2E;
+    stroke-width: 32;
+  }
+  circle.progress {
+    fill: transparent;
+    stroke: var(--accent-purple);
+    stroke-width: 32;
+    stroke-linecap: round;
+    stroke-dasharray: 1570;  /* 2π × r (r = 250) */
+    stroke-dashoffset: 1570; /* 0% state */
+  }
+
+  .center-text {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+  .percent-number {
+    font-size: 150px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .percent-symbol {
+    font-size: 80px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .label {
+    font-size: 42px;
+    font-weight: 500;
+    color: var(--text-muted);
+    opacity: 0;
+    transform: translateY(10px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 540 540">
+          <circle class="track" cx="270" cy="270" r="250"></circle>
+          <circle class="progress" id="ring" cx="270" cy="270" r="250"></circle>
+        </svg>
+        <div class="center-text">
+          <div style="display:flex; align-items:baseline; gap:4px;">
+            <span class="percent-number" id="num">0</span>
+            <span class="percent-symbol" id="sym">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="label" id="label">목표 달성률</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    percent: 78,
+    symbol: "%",
+    label: "목표 달성률",
+    accent_color: "#B366FF",
+    duration: 4.5,
+  };
+
+  const CIRC = 1570;  // 2π × 250
+  const ring = document.getElementById("ring");
+  ring.style.stroke = P.accent_color || "#B366FF";
+
+  document.getElementById("sym").textContent = P.symbol || "%";
+  document.getElementById("label").textContent = P.label || "";
+
+  const targetPct = Math.max(0, Math.min(100, P.percent || 0));
+  const targetOffset = CIRC * (1 - targetPct / 100);
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Card pop
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+
+  // Ring fill + number count-up (synchronous)
+  const state = { v: 0 };
+  tl.to(state, {
+    v: targetPct,
+    duration: 1.8,
+    ease: "power2.out",
+    onUpdate: () => {
+      const pct = Math.round(state.v);
+      document.getElementById("num").textContent = pct;
+      ring.style.strokeDashoffset = CIRC * (1 - state.v / 100);
+    },
+    onComplete: () => {
+      document.getElementById("num").textContent = targetPct;
+      ring.style.strokeDashoffset = targetOffset;
+    },
+  }, 0.6);
+
+  // Label fade
+  tl.to("#label", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 1.0);
+
+  const consumed = 2.5;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

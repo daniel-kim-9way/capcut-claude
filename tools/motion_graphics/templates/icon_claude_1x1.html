@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>icon_claude motion (1:1 — Anthropic Claude starburst logo)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .stage {
+    flex-direction: column;
+    gap: 50px;
+  }
+
+  /* Light card with Claude orange accent */
+  .icon-card {
+    width: 480px;
+    height: 480px;
+    background: #FAF7F2;       /* Anthropic warm white */
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.7);
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+
+  /* Glow ring (subtle warm) */
+  .glow-ring {
+    position: absolute;
+    inset: -40px;
+    border-radius: 140px;
+    background: radial-gradient(circle, rgba(217, 119, 87, 0.20) 0%, rgba(217, 119, 87, 0) 70%);
+    opacity: 0;
+  }
+
+  /* SVG starburst — Claude logo */
+  svg.starburst {
+    width: 320px;
+    height: 320px;
+    overflow: visible;
+  }
+  .star-arm {
+    fill: #D97757;             /* Claude signature orange */
+    transform-origin: 50px 50px;
+  }
+
+  .label {
+    font-size: var(--fs-h2);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+    transform: translateY(14px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="icon-card" id="card">
+      <div class="glow-ring" id="glow"></div>
+      <svg class="starburst" id="star" viewBox="0 0 100 100">
+        <defs>
+          <!-- Single arm: tapered ellipse from center to edge -->
+          <path id="arm" d="M 50 5 Q 53 25 50 50 Q 47 25 50 5 Z" />
+        </defs>
+        <use href="#arm" class="star-arm" transform="rotate(0 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(45 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(90 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(135 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(180 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(225 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(270 50 50)" />
+        <use href="#arm" class="star-arm" transform="rotate(315 50 50)" />
+      </svg>
+    </div>
+    <div class="label" id="label">Claude</div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    label: "Claude",
+    duration: 3.5,
+  };
+
+  document.getElementById("label").textContent = P.label || "";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Card pop with overshoot
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 0);
+
+  // Starburst rotation as it appears
+  tl.fromTo("#star",
+    { rotation: -45, transformOrigin: "center" },
+    { rotation: 0, duration: 1.2, ease: "power3.out" },
+    0.2
+  );
+
+  // Glow pulse
+  tl.to("#glow", { opacity: 1, duration: 0.4 }, 0.4);
+  tl.to("#glow", { scale: 1.15, duration: 1.0, yoyo: true, repeat: 1, ease: "power2.inOut" }, 0.6);
+
+  // Label fade up
+  tl.to("#label", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  // Hold
+  tl.to({}, { duration: Math.max(0.1, D - 2.0) }, 2.0);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence KakaoTalk motion composition</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Phone-card viewport: KakaoTalk native UI */
+  .phone-card {
+    width: 1100px;
+    height: 780px;
+    background: #B2C7D9; /* KakaoTalk chat background grey-blue */
+    border-radius: 28px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  /* Header bar */
+  .chat-header {
+    height: 88px;
+    background: #B2C7D9;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    padding: 0 32px;
+    flex-shrink: 0;
+  }
+  .header-back {
+    font-size: 36px;
+    color: #1A1A1A;
+    font-weight: 500;
+  }
+  .header-title {
+    flex: 1;
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1A1A1A;
+    letter-spacing: -0.01em;
+  }
+  .header-menu {
+    font-size: 32px;
+    color: #1A1A1A;
+    letter-spacing: -2px;
+  }
+
+  /* Chat body */
+  .chat-body {
+    flex: 1;
+    padding: 36px 36px 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .msg-row {
+    display: flex;
+    gap: 16px;
+    opacity: 0;
+  }
+
+  .avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #9BA4AE;
+    flex-shrink: 0;
+  }
+
+  .msg-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 680px;
+  }
+
+  .sender-name {
+    font-size: 20px;
+    font-weight: 500;
+    color: #2B2B2B;
+    margin-bottom: 4px;
+  }
+
+  .bubble-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .bubble {
+    background: #FAE100; /* KakaoTalk yellow */
+    border-radius: 22px;
+    padding: 24px 28px;
+    min-width: 120px;
+    max-width: 560px;
+    font-size: 30px;
+    font-weight: 500;
+    color: #1A1A1A;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    white-space: pre-wrap;
+    opacity: 0;
+    transform: scale(0.9);
+    transform-origin: bottom left;
+  }
+
+  .bubble .line {
+    opacity: 0;
+  }
+  .bubble .line .dot {
+    color: #1A1A1A;
+    font-weight: 700;
+  }
+
+  .bubble-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    opacity: 0;
+  }
+  .read-indicator {
+    font-size: 16px;
+    color: #FFB800;
+    font-weight: 500;
+  }
+  .timestamp {
+    font-size: 16px;
+    color: #606060;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="chat-header">
+        <div class="header-back">←</div>
+        <div class="header-title">프로젝트 회의방</div>
+        <div class="header-menu">≡</div>
+      </div>
+
+      <div class="chat-body">
+        <div class="msg-row" id="msg-row">
+          <div class="avatar"></div>
+          <div class="msg-col">
+            <div class="sender-name">김팀장</div>
+            <div class="bubble-row">
+              <div class="bubble" id="bubble">
+                <div class="line" id="line-0"><span class="dot">•</span> <span class="txt" id="txt-0"></span></div>
+                <div class="line" id="line-1"><span class="dot">•</span> <span class="txt" id="txt-1"></span></div>
+                <div class="line" id="line-2"><span class="dot">•</span> <span class="txt" id="txt-2"></span></div>
+                <div class="line" id="line-3"><span class="dot">•</span> <span class="txt" id="txt-3"></span></div>
+              </div>
+              <div class="bubble-meta" id="meta">
+                <div class="read-indicator">1</div>
+                <div class="timestamp">오후 3:42</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    header_title: "프로젝트 회의방",
+    sender_name: "김팀장",
+    lines: ["결정", "액션", "책임자", "기간"],
+    timestamp: "오후 3:42",
+    duration: 6.5,
+  };
+
+  // Apply param overrides to DOM
+  if (P.header_title) document.querySelector(".header-title").textContent = P.header_title;
+  if (P.sender_name) document.querySelector(".sender-name").textContent = P.sender_name;
+  if (P.timestamp) document.querySelector(".timestamp").textContent = P.timestamp;
+
+  const lines = (P.lines || []).slice(0, 4);
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Beat 1 (0.0–0.6s): phone card slides up + fades in
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // Beat 2 (0.7–1.2s): message row (avatar + name) fades in
+  tl.to("#msg-row", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  // Beat 3 (1.2–1.6s): empty yellow bubble pops in
+  tl.to("#bubble", {
+    opacity: 1,
+    scale: 1,
+    duration: 0.4,
+    ease: "back.out(1.6)",
+  }, 1.2);
+
+  // Beat 4 (1.7–5.2s): 4 lines typewrite sequentially
+  // Each line: 0.6s type + 0.25s pause before next
+  const lineStart = 1.7;
+  const lineCycle = 0.85;  // 0.6 + 0.25
+  const typeDur = 0.6;
+
+  lines.forEach((text, i) => {
+    const at = lineStart + i * lineCycle;
+    tl.to(`#line-${i}`, { opacity: 1, duration: 0.1 }, at);
+
+    // Typewriter for text content
+    const state = { n: 0 };
+    tl.to(state, {
+      n: text.length,
+      duration: typeDur,
+      ease: "steps(" + Math.max(1, text.length) + ")",
+      onUpdate: () => {
+        document.getElementById(`txt-${i}`).textContent = text.slice(0, Math.floor(state.n));
+      },
+      onComplete: () => {
+        document.getElementById(`txt-${i}`).textContent = text;
+      },
+    }, at);
+  });
+
+  // Beat 5: after last line, show meta (read indicator + timestamp)
+  const metaAt = lineStart + lines.length * lineCycle + 0.1;
+  tl.to("#meta", { opacity: 1, duration: 0.4, ease: "power2.out" }, metaAt);
+
+  // Beat 6: hold final state until D
+  const consumed = metaAt + 0.4;
+  const hold = Math.max(0.1, D - consumed);
+  tl.to({}, { duration: hold }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

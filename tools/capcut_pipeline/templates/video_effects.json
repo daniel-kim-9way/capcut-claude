@@ -1,0 +1,141 @@
+{
+  "math_rush": {
+    "display_name": "수학 폭주",
+    "material": {
+      "id": "E0B8DC84-4A13-4f09-BFA7-7E5C9A19FA00",
+      "effect_id": "7565684015898938677",
+      "resource_id": "7565684015898938677",
+      "name": "수학 폭주",
+      "type": "video_effect",
+      "sub_type": 0,
+      "bind_segment_id": "",
+      "transparent_params": "",
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/7565684015898938677/da6dbd8850a1d1a0e5ed4c1450c965cd",
+      "value": 1.0,
+      "category_id": "100000",
+      "category_name": "동영상 효과",
+      "platform": "all",
+      "apply_target_type": 2,
+      "source_platform": 1,
+      "version": "",
+      "item_effect_type": 0,
+      "adjust_params": [
+        {
+          "name": "effects_adjust_speed",
+          "value": 0.5,
+          "default_value": 0.5
+        }
+      ],
+      "time_range": null,
+      "formula_id": "",
+      "apply_time_range": null,
+      "render_index": 0,
+      "track_render_index": 0,
+      "common_keyframes": [],
+      "request_id": "",
+      "algorithm_artifact_path": "",
+      "disable_effect_faces": [],
+      "covering_relation_change": 0,
+      "enable_mask": true,
+      "effect_mask": [],
+      "enable_video_mask_stroke": true,
+      "enable_video_mask_shadow": true
+    }
+  },
+  "lens_zoom": {
+    "display_name": "렌즈 줌",
+    "material": {
+      "id": "3A8D271F-7BB6-4dc8-826A-33885F3EBAB3",
+      "effect_id": "7399465441057328389",
+      "resource_id": "7399465441057328389",
+      "name": "렌즈 줌",
+      "type": "video_effect",
+      "sub_type": 0,
+      "bind_segment_id": "",
+      "transparent_params": "",
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/7399465441057328389/6f7b76eec49d46f9397eafb4980a17d4",
+      "value": 1.0,
+      "category_id": "2037709425",
+      "category_name": "기본형",
+      "platform": "all",
+      "apply_target_type": 2,
+      "source_platform": 1,
+      "version": "",
+      "item_effect_type": 0,
+      "adjust_params": [
+        {
+          "name": "effects_adjust_speed",
+          "value": 0.11,
+          "default_value": 0.33
+        },
+        {
+          "name": "effects_adjust_range",
+          "value": 0.1,
+          "default_value": 0.3
+        }
+      ],
+      "time_range": null,
+      "formula_id": "",
+      "apply_time_range": null,
+      "render_index": 0,
+      "track_render_index": 0,
+      "common_keyframes": [],
+      "request_id": "2026042112040456FEC46AA55AE4B0F196",
+      "algorithm_artifact_path": "",
+      "disable_effect_faces": [],
+      "covering_relation_change": 0,
+      "enable_mask": true,
+      "effect_mask": [],
+      "enable_video_mask_stroke": true,
+      "enable_video_mask_shadow": true
+    }
+  },
+  "flash_warm": {
+    "display_name": "미지근한 플래시",
+    "material": {
+      "id": "A3818D1F-7C47-47ad-99FE-1E489D1C1DCB",
+      "effect_id": "7614441586457333000",
+      "resource_id": "7614441586457333000",
+      "name": "미지근한 플래시",
+      "type": "video_effect",
+      "sub_type": 0,
+      "bind_segment_id": "",
+      "transparent_params": "",
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/7614441586457333000/a38d302fb6feb33682a1471ded7abe19",
+      "value": 1.0,
+      "category_id": "100000",
+      "category_name": "동영상 효과",
+      "platform": "all",
+      "apply_target_type": 2,
+      "source_platform": 1,
+      "version": "",
+      "item_effect_type": 0,
+      "adjust_params": [
+        {
+          "name": "effects_adjust_speed",
+          "value": 0.33333333333333,
+          "default_value": 0.33333333333333
+        },
+        {
+          "name": "effects_adjust_background_animation",
+          "value": 0.5,
+          "default_value": 0.5
+        }
+      ],
+      "time_range": null,
+      "formula_id": "",
+      "apply_time_range": null,
+      "render_index": 0,
+      "track_render_index": 0,
+      "common_keyframes": [],
+      "request_id": "",
+      "algorithm_artifact_path": "",
+      "disable_effect_faces": [],
+      "covering_relation_change": 0,
+      "enable_mask": true,
+      "effect_mask": [],
+      "enable_video_mask_stroke": true,
+      "enable_video_mask_shadow": true
+    }
+  }
+}

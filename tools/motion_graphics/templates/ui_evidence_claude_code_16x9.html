@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Claude Code motion (16:9 — terminal CLI session)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .terminal {
+    width: 1620px;
+    height: 920px;
+    background: #1B1B1F;
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-card-heavy);
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  .title-bar {
+    height: 50px;
+    background: #2B2B30;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 9px;
+    flex-shrink: 0;
+  }
+  .tl-btn { width: 14px; height: 14px; border-radius: 50%; }
+  .tl-red    { background: var(--accent-error); }
+  .tl-yellow { background: var(--accent-warning); }
+  .tl-green  { background: var(--accent-success); }
+  .tl-title {
+    flex: 1;
+    text-align: center;
+    color: #B5B5BC;
+    font-size: 18px;
+    font-weight: 500;
+    font-family: "Pretendard", sans-serif;
+    letter-spacing: 0.02em;
+  }
+
+  .body {
+    flex: 1;
+    padding: 38px 44px;
+    overflow: hidden;
+    font-family: "Pretendard", sans-serif;
+  }
+
+  /* User message (right-aligned, subtle bg) */
+  .user-msg {
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 18px 24px;
+    color: #E5E5E8;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 28px;
+    opacity: 0;
+  }
+
+  /* Thinking / event line */
+  .event {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+    opacity: 0;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 14px;
+    flex-shrink: 0;
+  }
+  .dot.thinking { background: #6B6B70; }
+  .dot.action   { background: var(--accent-purple); }
+  .dot.output   { background: var(--accent-success); }
+
+  .event-title {
+    color: #C7C7CC;
+    font-size: 24px;
+    font-weight: var(--fw-bold);
+    margin-bottom: 6px;
+  }
+  .event-detail {
+    color: #8A8A90;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.4;
+    font-family: "Consolas", "Menlo", monospace;
+  }
+
+  /* Tool call: file path mono, accent color for action */
+  .tool-call {
+    display: inline;
+  }
+  .tool-call .verb {
+    color: var(--accent-purple);
+    font-weight: var(--fw-bold);
+    margin-right: 10px;
+  }
+  .tool-call .path {
+    color: #B0B0B6;
+  }
+  .tool-call .meta {
+    color: #6B6B70;
+    margin-left: 10px;
+  }
+
+  /* Code block */
+  .code-block {
+    background: #131316;
+    border-left: 4px solid var(--accent-success);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin: 14px 0 0 26px;
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 22px;
+    line-height: 1.5;
+    color: #DBDBE0;
+    white-space: pre;
+    opacity: 0;
+  }
+  .code-block .kw { color: #FF7B72; }
+  .code-block .id { color: #79C0FF; }
+  .code-block .str { color: #A5D6A1; }
+  .code-block .com { color: #6B6B70; font-style: italic; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="terminal" id="card">
+      <div class="title-bar">
+        <div class="tl-btn tl-red"></div>
+        <div class="tl-btn tl-yellow"></div>
+        <div class="tl-btn tl-green"></div>
+        <div class="tl-title" id="tl-title">Claude Code — terminal</div>
+      </div>
+      <div class="body">
+        <div class="user-msg" id="user-msg">자동화 들어갑니다.</div>
+
+        <div class="event" id="ev-thinking">
+          <div class="dot thinking"></div>
+          <div>
+            <div class="event-title">Thinking</div>
+            <div class="event-detail" id="thinking-text"></div>
+          </div>
+        </div>
+
+        <div class="event" id="ev-read">
+          <div class="dot action"></div>
+          <div>
+            <div class="event-title">
+              <span class="tool-call">
+                <span class="verb">Read</span>
+                <span class="path" id="read-path"></span>
+                <span class="meta" id="read-meta"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="event" id="ev-edit">
+          <div class="dot action"></div>
+          <div>
+            <div class="event-title">
+              <span class="tool-call">
+                <span class="verb">Edit</span>
+                <span class="path" id="edit-path"></span>
+              </span>
+            </div>
+            <div class="code-block" id="code-block"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "Claude Code — terminal",
+    user_message: "자동화 들어갑니다.",
+    thinking_text: "ng_cutter.py에 어미 +400ms 자동 적용 + crossfade 플래그 추가",
+    read_path: "tools/capcut_pipeline/ng_cutter.py",
+    read_meta: "(lines 156-215)",
+    edit_path: "tools/capcut_pipeline/ng_cutter.py",
+    edit_lines_added: 52,
+    code: '<span class="kw">def</span> <span class="id">_flatten_words</span>(transcript: <span class="id">dict</span>):\n    out = []\n    <span class="kw">for</span> s <span class="kw">in</span> transcript.get(<span class="str">"segments"</span>, []):\n        <span class="kw">for</span> w <span class="kw">in</span> s.get(<span class="str">"words"</span>, []):\n            <span class="com"># shift to clean coordinate</span>\n            out.append((w[<span class="str">"start"</span>], w[<span class="str">"end"</span>]))\n    <span class="kw">return</span> out',
+    duration: 7.0,
+  };
+
+  document.getElementById("tl-title").textContent = P.title || "";
+  document.getElementById("user-msg").textContent = P.user_message || "";
+  document.getElementById("thinking-text").textContent = P.thinking_text || "";
+  document.getElementById("read-path").textContent = P.read_path || "";
+  document.getElementById("read-meta").textContent = P.read_meta || "";
+  document.getElementById("edit-path").textContent = P.edit_path || "";
+  document.getElementById("code-block").innerHTML = P.code || "";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Terminal slides up
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // Sequential events
+  tl.to("#user-msg", { opacity: 1, duration: 0.4 }, 0.7);
+  tl.to("#ev-thinking", { opacity: 1, duration: 0.4 }, 1.5);
+  tl.to("#ev-read", { opacity: 1, duration: 0.4 }, 2.5);
+  tl.to("#ev-edit", { opacity: 1, duration: 0.4 }, 3.5);
+  tl.to("#code-block", { opacity: 1, duration: 0.5 }, 4.0);
+
+  const consumed = 4.7;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

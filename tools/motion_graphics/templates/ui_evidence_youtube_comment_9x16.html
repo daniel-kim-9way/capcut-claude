@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence YouTube Comment motion (9:16 mobile)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* 모바일 YouTube 앱 — 상단 상태바 + 영상 플레이어 placeholder + 댓글 섹션 */
+  .phone-card {
+    width: 920px;
+    height: 1700px;
+    background: #0F0F0F;
+    border-radius: 54px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 60px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .status-bar {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 44px;
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+  .status-icons { display: flex; gap: 10px; align-items: center; }
+  .signal-bars { display: flex; gap: 3px; align-items: flex-end; height: 18px; }
+  .signal-bars span { width: 4px; background: #FFFFFF; border-radius: 1px; }
+  .signal-bars span:nth-child(1) { height: 6px; }
+  .signal-bars span:nth-child(2) { height: 10px; }
+  .signal-bars span:nth-child(3) { height: 14px; }
+  .signal-bars span:nth-child(4) { height: 18px; }
+  .battery-icon {
+    width: 28px; height: 14px;
+    border: 2px solid #FFFFFF; border-radius: 3px;
+    position: relative;
+  }
+  .battery-icon::after {
+    content: ""; position: absolute; right: -5px; top: 3px;
+    width: 3px; height: 4px; background: #FFFFFF; border-radius: 0 1px 1px 0;
+  }
+  .battery-icon::before {
+    content: ""; position: absolute; left: 1px; top: 1px;
+    width: 80%; height: calc(100% - 2px); background: #FFFFFF; border-radius: 1px;
+  }
+
+  /* 영상 플레이어 placeholder (dark, 얇음) */
+  .video-stub {
+    height: 520px;
+    background: #000000;
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .video-stub::after {
+    content: "";
+    width: 80px; height: 80px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+  }
+  .video-stub::before {
+    content: "";
+    position: absolute;
+    width: 0; height: 0;
+    border-left: 24px solid rgba(255, 255, 255, 0.6);
+    border-top: 16px solid transparent;
+    border-bottom: 16px solid transparent;
+    margin-left: 6px;
+    z-index: 2;
+  }
+
+  /* 영상 제목 영역 */
+  .video-meta {
+    padding: 28px 40px 20px;
+    color: #FFFFFF;
+    flex-shrink: 0;
+  }
+  .video-title {
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 16px;
+  }
+  .channel-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #AAAAAA;
+    font-size: 24px;
+  }
+  .channel-avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: #606060;
+  }
+
+  /* 댓글 섹션 헤더 */
+  .comments-header {
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #FFFFFF;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .comments-count {
+    font-size: 28px;
+    font-weight: 700;
+  }
+  .sort-btn {
+    font-size: 22px;
+    color: #AAAAAA;
+  }
+
+  /* 댓글 리스트 */
+  .comments-body {
+    flex: 1;
+    padding: 20px 40px;
+    overflow: hidden;
+  }
+  .comment {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 36px;
+    opacity: 0;
+  }
+  .c-avatar {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: #9BA4AE;
+    flex-shrink: 0;
+  }
+  .c-body { flex: 1; }
+  .c-header {
+    color: #AAAAAA;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 10px;
+    display: flex;
+    gap: 12px;
+  }
+  .c-text {
+    color: #FFFFFF;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .c-actions {
+    color: #AAAAAA;
+    font-size: 22px;
+    margin-top: 14px;
+    display: flex;
+    gap: 28px;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="battery-icon"></div>
+        </div>
+      </div>
+
+      <div class="video-stub"></div>
+
+      <div class="video-meta">
+        <div class="video-title" id="video-title">뇌는 4개만 기억해요</div>
+        <div class="channel-row">
+          <div class="channel-avatar"></div>
+          <span id="channel-name">채널명</span>
+        </div>
+      </div>
+
+      <div class="comments-header">
+        <div class="comments-count" id="comments-count">댓글 1.2천</div>
+        <div class="sort-btn">정렬 기준 ▾</div>
+      </div>
+
+      <div class="comments-body">
+        <div class="comment" id="c-0">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span class="c-user" id="u-0"></span><span>방금</span></div>
+            <div class="c-text" id="t-0"></div>
+            <div class="c-actions">👍  답글</div>
+          </div>
+        </div>
+        <div class="comment" id="c-1">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span class="c-user" id="u-1"></span><span>1분 전</span></div>
+            <div class="c-text" id="t-1"></div>
+          </div>
+        </div>
+        <div class="comment" id="c-2">
+          <div class="c-avatar"></div>
+          <div class="c-body">
+            <div class="c-header"><span class="c-user" id="u-2"></span><span>3분 전</span></div>
+            <div class="c-text" id="t-2"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    video_title: "뇌는 4개만 기억해요",
+    channel_name: "@productivity",
+    comments_count: "댓글 1.2천",
+    comments: [
+      { username: "@kim_worker", text: "기록 시스템", cta: true },
+      { username: "@daily_learner", text: "노션 진짜 최고!" },
+      { username: "@office_life", text: "저도 해볼게요 감사합니다" },
+    ],
+    duration: 6.5,
+  };
+
+  if (P.video_title) document.getElementById("video-title").textContent = P.video_title;
+  if (P.channel_name) document.getElementById("channel-name").textContent = P.channel_name;
+  if (P.comments_count) document.getElementById("comments-count").textContent = P.comments_count;
+
+  const comments = (P.comments || []).slice(0, 3);
+  comments.forEach((c, i) => {
+    document.getElementById(`u-${i}`).textContent = c.username || "";
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+
+  // 각 댓글 순차 등장, 마지막 hoot comment(CTA) 는 타이핑
+  const commentStart = 0.9;
+  const commentCycle = 0.9;
+  const popDur = 0.35;
+
+  comments.forEach((c, i) => {
+    const at = commentStart + i * commentCycle;
+    tl.to(`#c-${i}`, { opacity: 1, duration: popDur, ease: "power2.out" }, at);
+    // 타이핑: CTA 표시된 댓글은 글자씩, 나머지는 즉시 표시
+    const text = c.text || "";
+    if (c.cta) {
+      const state = { n: 0 };
+      tl.to(state, {
+        n: text.length,
+        duration: 0.8,
+        ease: "steps(" + Math.max(1, text.length) + ")",
+        onUpdate: () => {
+          document.getElementById(`t-${i}`).textContent = text.slice(0, Math.floor(state.n));
+        },
+        onComplete: () => {
+          document.getElementById(`t-${i}`).textContent = text;
+        },
+      }, at + popDur * 0.4);
+    } else {
+      tl.call(() => {
+        document.getElementById(`t-${i}`).textContent = text;
+      }, [], at + popDur * 0.4);
+    }
+  });
+
+  const consumed = commentStart + comments.length * commentCycle;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

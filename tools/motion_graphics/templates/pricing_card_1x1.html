@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>pricing_card motion (1:1 — pricing tier with price count-up + feature checklist)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    width: 880px;
+    height: 980px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 64px 64px 60px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    display: flex;
+    flex-direction: column;
+    border: 2px solid rgba(179, 102, 255, 0.4);
+    box-shadow: 0 0 60px rgba(179, 102, 255, 0.18);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ribbon {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    background: var(--accent-purple);
+    color: #FFFFFF;
+    font-size: 22px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 8px 18px;
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+
+  .tier {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+    text-transform: uppercase;
+    opacity: 0;
+  }
+
+  .tagline {
+    margin-top: 10px;
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--text-muted-dark);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 36px;
+    margin-bottom: 32px;
+    opacity: 0;
+  }
+  .currency {
+    font-size: 50px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 18px;
+  }
+  .price {
+    font-size: 160px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 0.95;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--ls-tight);
+  }
+  .period {
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+  }
+
+  .features {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .feature {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+  }
+  .check {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent-purple);
+    color: #FFFFFF;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .cta {
+    margin-top: 28px;
+    width: 100%;
+    height: 90px;
+    border-radius: 18px;
+    background: var(--accent-purple);
+    color: #FFFFFF;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: var(--ls-snug);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(14px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+
+      <div class="ribbon" id="ribbon">추천</div>
+      <div class="tier" id="tier">PRO</div>
+      <div class="tagline" id="tagline">팀과 본격 협업을 위한 플랜</div>
+
+      <div class="price-row" id="price-row">
+        <div class="currency" id="currency">₩</div>
+        <div class="price" id="price">0</div>
+        <div class="period" id="period">/월</div>
+      </div>
+
+      <div class="features" id="features"></div>
+
+      <div class="cta" id="cta">지금 시작하기</div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    tier: "PRO",
+    tagline: "팀과 본격 협업을 위한 플랜",
+    ribbon: "추천",
+    currency: "₩",
+    price: 19900,
+    period: "/월",
+    features: [
+      "무제한 프로젝트",
+      "팀원 5명까지",
+      "AI 자동 요약",
+      "우선 지원",
+    ],
+    cta: "지금 시작하기",
+    duration: 5.5,
+  };
+
+  document.getElementById("tier").textContent = P.tier || "";
+  document.getElementById("tagline").textContent = P.tagline || "";
+  document.getElementById("currency").textContent = P.currency || "₩";
+  document.getElementById("period").textContent = P.period || "/월";
+  document.getElementById("cta").textContent = P.cta || "";
+
+  const ribbon = document.getElementById("ribbon");
+  if (P.ribbon) ribbon.textContent = P.ribbon;
+  else ribbon.style.display = "none";
+
+  const featuresEl = document.getElementById("features");
+  const features = (P.features || []).slice(0, 5);
+  features.forEach((f, i) => {
+    const el = document.createElement("div");
+    el.className = "feature";
+    el.id = `feat-${i}`;
+    el.innerHTML = `<div class="check">✓</div><div>${f}</div>`;
+    featuresEl.appendChild(el);
+  });
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  if (P.ribbon) {
+    tl.to("#ribbon", { opacity: 1, duration: 0.4, ease: "back.out(1.8)" }, 0.5);
+  }
+  tl.to("#tier", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.5);
+  tl.to("#tagline", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  // Price reveal + count up
+  tl.to("#price-row", { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.0);
+  const priceState = { v: 0 };
+  tl.to(priceState, {
+    v: P.price || 0,
+    duration: 1.2,
+    ease: "power3.out",
+    onUpdate: () => {
+      document.getElementById("price").textContent = Math.round(priceState.v).toLocaleString("ko-KR");
+    },
+    onComplete: () => {
+      document.getElementById("price").textContent = (P.price || 0).toLocaleString("ko-KR");
+    },
+  }, 1.0);
+
+  // Features stagger check
+  const featStart = 2.4;
+  const featCycle = 0.22;
+  features.forEach((_, i) => {
+    tl.fromTo(`#feat-${i}`,
+      { opacity: 0, x: -16 },
+      { opacity: 1, x: 0, duration: 0.4, ease: "back.out(1.6)" },
+      featStart + i * featCycle);
+  });
+
+  // CTA
+  const ctaAt = featStart + features.length * featCycle + 0.2;
+  tl.to("#cta", { opacity: 1, y: 0, duration: 0.5, ease: "back.out(1.6)" }, ctaAt);
+
+  const consumed = ctaAt + 0.8;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

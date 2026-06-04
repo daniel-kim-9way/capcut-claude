@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>message_object motion (9:16 vertical — empty bubble symbol)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .bubble-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 50px;
+    opacity: 0;
+    transform: scale(0.85);
+  }
+
+  .bubble {
+    width: 620px;
+    height: 440px;
+    border-radius: 100px;
+    position: relative;
+    box-shadow: var(--shadow-card);
+  }
+  .bubble::after {
+    content: "";
+    position: absolute;
+    left: 72px;
+    bottom: -38px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50% 50% 50% 0;
+    background: inherit;
+    transform: rotate(-12deg);
+  }
+
+  .label {
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    opacity: 0;
+    transform: translateY(16px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="bubble-wrap" id="wrap">
+      <div class="bubble" id="bubble"></div>
+      <div class="label" id="label">카톡 왔어요</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    bubble_color: "#FAE100",
+    label: "카톡 왔어요",
+    duration: 3.5,
+  };
+
+  document.getElementById("bubble").style.background = P.bubble_color || "#FAE100";
+  document.getElementById("label").textContent = P.label || "";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#wrap", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 0);
+  tl.to("#bubble", { y: -16, duration: 0.7, ease: "power2.inOut", yoyo: true, repeat: 1 }, 0.6);
+  tl.to("#label", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+  tl.to({}, { duration: Math.max(0.1, D - 2.0) }, 2.0);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

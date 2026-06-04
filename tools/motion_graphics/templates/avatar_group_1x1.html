@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>avatar_group motion (1:1 — overlapping avatars + count badge)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .card {
+    width: 980px;
+    height: 980px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 80px;
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+  }
+
+  .label-top {
+    font-size: var(--fs-h4);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+  }
+
+  .avatar {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 8px solid var(--bg-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 80px;
+    line-height: 1;
+    letter-spacing: var(--ls-tight);
+    opacity: 0;
+    transform: scale(0.7);
+    margin-left: -56px;
+  }
+  .avatar:first-child { margin-left: 0; }
+
+  .more-badge {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 8px solid var(--bg-dark);
+    background: var(--accent-purple);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 50px;
+    letter-spacing: var(--ls-tight);
+    opacity: 0;
+    transform: scale(0.7);
+    margin-left: -56px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .footer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-num {
+    font-size: 130px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--ls-tight);
+    opacity: 0;
+  }
+  .footer-label {
+    font-size: 38px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-snug);
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+
+      <div class="label-top" id="label-top"></div>
+
+      <div class="row" id="row"></div>
+
+      <div class="footer">
+        <div class="footer-num" id="footer-num">0</div>
+        <div class="footer-label" id="footer-label"></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    label_top: "이미 함께하는",
+    avatars: [
+      { initial: "유", bg: "#FD297B" },
+      { initial: "민", bg: "#5EBEFF" },
+      { initial: "지", bg: "#27C93F" },
+      { initial: "준", bg: "#FFBD2E" },
+      { initial: "현", bg: "#B366FF" },
+    ],
+    total: 278,
+    label_bottom: "명이 사용 중",
+    duration: 4.5,
+  };
+
+  document.getElementById("label-top").textContent = P.label_top || "";
+  document.getElementById("footer-label").textContent = P.label_bottom || "";
+
+  const row = document.getElementById("row");
+  const avatars = (P.avatars || []).slice(0, 6);
+
+  avatars.forEach((a, i) => {
+    const el = document.createElement("div");
+    el.className = "avatar";
+    el.id = `av-${i}`;
+    el.style.background = a.bg || "#6B6B70";
+    el.style.color = a.color || "#FFFFFF";
+    el.textContent = (a.initial || "").slice(0, 2);
+    row.appendChild(el);
+  });
+
+  const total = P.total || 0;
+  const shown = avatars.length;
+  const more = total - shown;
+
+  // Add "+N" badge if total > avatars.length
+  if (more > 0) {
+    const badge = document.createElement("div");
+    badge.className = "more-badge";
+    badge.id = "more-badge";
+    badge.textContent = "+" + more;
+    row.appendChild(badge);
+  }
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#label-top", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+
+  // Avatars stagger pop
+  const avStart = 0.7;
+  const avCycle = 0.13;
+  avatars.forEach((_, i) => {
+    tl.to(`#av-${i}`, {
+      opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.8)",
+    }, avStart + i * avCycle);
+  });
+
+  if (more > 0) {
+    tl.to("#more-badge", {
+      opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.8)",
+    }, avStart + avatars.length * avCycle);
+  }
+
+  // Count up
+  const countAt = avStart + (avatars.length + (more > 0 ? 1 : 0)) * avCycle + 0.2;
+  const numState = { v: 0 };
+  tl.to("#footer-num", { opacity: 1, duration: 0.3 }, countAt);
+  tl.to("#footer-label", { opacity: 1, duration: 0.3 }, countAt + 0.1);
+  tl.to(numState, {
+    v: total,
+    duration: 1.2,
+    ease: "power2.out",
+    onUpdate: () => {
+      document.getElementById("footer-num").textContent = Math.round(numState.v).toLocaleString("en-US");
+    },
+    onComplete: () => {
+      document.getElementById("footer-num").textContent = total.toLocaleString("en-US");
+    },
+  }, countAt);
+
+  const consumed = countAt + 1.4;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

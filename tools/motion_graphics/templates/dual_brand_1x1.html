@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>dual_brand motion (1:1 — two real brand SVGs side by side with vs)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+
+  .stage {
+    position: absolute; inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+  }
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    opacity: 0;
+  }
+  .side.left { transform: translateX(-60px); }
+  .side.right { transform: translateX(60px); }
+
+  .icon-card {
+    width: 320px;
+    height: 320px;
+    border-radius: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+  .icon-card.warm-white { background: #FAF7F2; }
+  .icon-card.white      { background: #FFFFFF; }
+  .icon-card.black      { background: #000000; }
+
+  svg.brand-logo {
+    width: 220px;
+    height: 220px;
+    overflow: visible;
+  }
+
+  .arm-claude     { fill: #D97757; }
+  .petal-chatgpt  { fill: #000000; }
+
+  .label {
+    font-size: 48px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.01em;
+  }
+
+  .vs {
+    font-size: 120px;
+    font-weight: 900;
+    color: #B366FF;
+    letter-spacing: -0.02em;
+    opacity: 0;
+    transform: scale(0.6);
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="side left" id="side-left">
+      <div class="icon-card warm-white" id="card-left">
+        <svg class="brand-logo" id="logo-left" viewBox="0 0 100 100"></svg>
+      </div>
+      <div class="label" id="label-left">Claude</div>
+    </div>
+
+    <div class="vs" id="vs">vs</div>
+
+    <div class="side right" id="side-right">
+      <div class="icon-card white" id="card-right">
+        <svg class="brand-logo" id="logo-right" viewBox="0 0 100 100"></svg>
+      </div>
+      <div class="label" id="label-right">ChatGPT</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    left:  { brand: "claude",  label: "Claude" },
+    right: { brand: "chatgpt", label: "ChatGPT" },
+    vs_text: "vs",
+    duration: 3.5,
+  };
+
+  // ---- Brand SVG renderers ----
+  function renderClaude(svgEl) {
+    // 8-arm tapered starburst — same path as icon_claude_1x1
+    const armPath = 'M 50 5 Q 53 25 50 50 Q 47 25 50 5 Z';
+    const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+    let inner = '<defs><path id="arm-claude" d="' + armPath + '" /></defs>';
+    for (const a of angles) {
+      inner += '<use href="#arm-claude" class="arm-claude" transform="rotate(' + a + ' 50 50)" />';
+    }
+    svgEl.innerHTML = inner;
+  }
+
+  function renderChatGPT(svgEl) {
+    // 6-petal rosette approximating OpenAI knot logo.
+    // Each petal: rounded teardrop from outer rim toward center.
+    const petalPath = 'M 50 8 C 60 22 60 38 50 50 C 40 38 40 22 50 8 Z';
+    const angles = [0, 60, 120, 180, 240, 300];
+    let inner = '<defs><path id="petal-chatgpt" d="' + petalPath + '" /></defs>';
+    for (const a of angles) {
+      inner += '<use href="#petal-chatgpt" class="petal-chatgpt" transform="rotate(' + a + ' 50 50)" />';
+    }
+    svgEl.innerHTML = inner;
+  }
+
+  function renderBrand(svgEl, brand) {
+    if (brand === 'claude')  return renderClaude(svgEl);
+    if (brand === 'chatgpt') return renderChatGPT(svgEl);
+    svgEl.innerHTML = '';
+  }
+
+  // Card background class per brand
+  function cardClass(brand) {
+    if (brand === 'claude')  return 'warm-white';
+    if (brand === 'chatgpt') return 'white';
+    return 'white';
+  }
+
+  const cardL = document.getElementById('card-left');
+  const cardR = document.getElementById('card-right');
+  cardL.classList.remove('warm-white', 'white', 'black');
+  cardR.classList.remove('warm-white', 'white', 'black');
+  cardL.classList.add('icon-card');
+  cardR.classList.add('icon-card');
+  cardL.classList.add(cardClass(P.left.brand));
+  cardR.classList.add(cardClass(P.right.brand));
+
+  renderBrand(document.getElementById('logo-left'),  P.left.brand);
+  renderBrand(document.getElementById('logo-right'), P.right.brand);
+
+  document.getElementById('label-left').textContent  = P.left.label  || '';
+  document.getElementById('label-right').textContent = P.right.label || '';
+  document.getElementById('vs').textContent = P.vs_text || 'vs';
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Left slides in from left
+  tl.to('#side-left', {
+    opacity: 1, x: 0,
+    duration: 0.55, ease: 'power3.out',
+  }, 0);
+
+  // Right slides in from right
+  tl.to('#side-right', {
+    opacity: 1, x: 0,
+    duration: 0.55, ease: 'power3.out',
+  }, 0.15);
+
+  // Logos rotate slightly into place
+  tl.fromTo('#logo-left',
+    { rotation: -25, transformOrigin: 'center' },
+    { rotation: 0, duration: 1.0, ease: 'power3.out' },
+    0.2
+  );
+  tl.fromTo('#logo-right',
+    { rotation: 25, transformOrigin: 'center' },
+    { rotation: 0, duration: 1.0, ease: 'power3.out' },
+    0.35
+  );
+
+  // "vs" pops in
+  tl.to('#vs', {
+    opacity: 1, scale: 1,
+    duration: 0.45, ease: 'back.out(2)',
+  }, 0.8);
+
+  // Subtle breathing pulse on "vs"
+  tl.to('#vs', {
+    scale: 1.1,
+    duration: 0.8,
+    yoyo: true, repeat: 1,
+    ease: 'power2.inOut',
+  }, 1.3);
+
+  const consumed = 2.9;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "typewriter": {
+    "display_name": "타자기 iv",
+    "animation_entry": {
+      "id": "7237409385092223525",
+      "type": "in",
+      "start": 0,
+      "duration": 1400000,
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/7237409385092223525/6828d67634e66ace1e76c4eb7cc2f8e6",
+      "platform": "all",
+      "resource_id": "7237409385092223525",
+      "third_resource_id": "7237409385092223525",
+      "source_platform": 1,
+      "name": "타자기 iv",
+      "category_id": "ruchang",
+      "category_name": "인",
+      "panel": "",
+      "material_type": "sticker",
+      "anim_adjust_params": null,
+      "request_id": "2026042111310785835594E82D02D99E3A"
+    },
+    "default_duration_us": 1400000
+  }
+}

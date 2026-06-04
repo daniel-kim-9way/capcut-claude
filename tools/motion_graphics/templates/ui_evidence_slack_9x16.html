@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ui_evidence Slack motion (9:16 mobile)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  .phone-card {
+    width: 920px;
+    height: 1700px;
+    background: #FFFFFF;
+    border-radius: 56px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-card-heavy);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  .status-bar.light { background: #FFFFFF; }
+
+  .chat-header {
+    height: 110px;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E0E0E0;
+    display: flex;
+    align-items: center;
+    padding: 0 36px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header-back {
+    font-size: 44px;
+    color: var(--text-dark);
+    font-weight: 300;
+  }
+  .header-channel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .channel-name {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+  .ch-hash { font-weight: 300; color: #80848E; margin-right: 4px; }
+  .channel-meta {
+    font-size: 20px;
+    color: #80848E;
+  }
+
+  .messages {
+    flex: 1;
+    padding: 30px 32px;
+    overflow: hidden;
+  }
+  .msg {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    opacity: 0;
+  }
+  .m-avatar {
+    width: 64px; height: 64px;
+    border-radius: 12px;
+    background: #B0B0B0;
+    flex-shrink: 0;
+  }
+  .m-body { flex: 1; }
+  .m-meta {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .m-name {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-dark);
+  }
+  .m-time { font-size: 18px; color: #808080; }
+  .m-text {
+    font-size: 30px;
+    color: var(--text-dark);
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone-card" id="card">
+
+      <div class="status-bar light">
+        <span>9:41</span>
+        <div class="status-icons">
+          <div class="signal-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="battery-icon"></div>
+        </div>
+      </div>
+
+      <div class="chat-header">
+        <div class="header-back">←</div>
+        <div class="header-channel">
+          <div class="channel-name"><span class="ch-hash">#</span><span id="channel-name">project-alpha</span></div>
+          <div class="channel-meta" id="channel-meta">Acme Inc · 12 멤버</div>
+        </div>
+      </div>
+
+      <div class="messages">
+        <div class="msg" id="m-0"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-0"></span><span class="m-time" id="t-0"></span></div><div class="m-text" id="x-0"></div></div></div>
+        <div class="msg" id="m-1"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-1"></span><span class="m-time" id="t-1"></span></div><div class="m-text" id="x-1"></div></div></div>
+        <div class="msg" id="m-2"><div class="m-avatar"></div><div class="m-body"><div class="m-meta"><span class="m-name" id="n-2"></span><span class="m-time" id="t-2"></span></div><div class="m-text" id="x-2"></div></div></div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    channel: "project-alpha",
+    workspace_meta: "Acme Inc · 12 멤버",
+    messages: [
+      { name: "김팀장", time: "오후 3:42", text: "회의 요약 공유합니다 📝" },
+      { name: "박디자이너", time: "오후 3:43", text: "UI 시안 오늘 중으로!" },
+      { name: "이개발", time: "오후 3:45", text: "👍 감사합니다" },
+    ],
+    duration: 6.0,
+  };
+
+  document.getElementById("channel-name").textContent = P.channel || "";
+  document.getElementById("channel-meta").textContent = P.workspace_meta || "";
+  const msgs = (P.messages || []).slice(0, 3);
+  msgs.forEach((m, i) => {
+    document.getElementById(`n-${i}`).textContent = m.name || "";
+    document.getElementById(`t-${i}`).textContent = m.time || "";
+    document.getElementById(`x-${i}`).textContent = m.text || "";
+  });
+  for (let i = msgs.length; i < 3; i++) document.getElementById(`m-${i}`).style.display = "none";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0);
+  const msgStart = 0.9, msgCycle = 1.0;
+  msgs.forEach((_, i) => {
+    tl.to(`#m-${i}`, { opacity: 1, duration: 0.4, ease: "power2.out" }, msgStart + i * msgCycle);
+  });
+  const consumed = msgStart + msgs.length * msgCycle + 0.2;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

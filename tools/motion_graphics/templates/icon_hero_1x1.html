@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>icon_hero motion (1:1 square — brand logo pop-in + glow)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1080px; }
+  .stage {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 50px;
+  }
+
+  /* Icon wrapper — rounded square card, brand color */
+  .icon-card {
+    width: 420px;
+    height: 420px;
+    border-radius: 92px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.7);
+    position: relative;
+  }
+
+  /* Glow ring around icon */
+  .glow-ring {
+    position: absolute;
+    inset: -40px;
+    border-radius: 120px;
+    background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 70%);
+    opacity: 0;
+  }
+
+  .icon-symbol {
+    font-weight: 900;
+    color: #FFFFFF;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-size: 280px;
+  }
+
+  .label {
+    font-size: 56px;
+    font-weight: 500;
+    color: #FFFFFF;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="icon-card" id="card">
+      <div class="glow-ring" id="glow"></div>
+      <div class="icon-symbol" id="symbol">N</div>
+    </div>
+    <div class="label" id="label">노션</div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    symbol: "N",
+    hex_color: "#000000",
+    label: "노션",
+    symbol_color: "#FFFFFF",
+    duration: 3.5,
+  };
+
+  const card = document.getElementById("card");
+  const sym = document.getElementById("symbol");
+  const label = document.getElementById("label");
+
+  card.style.background = P.hex_color || "#000000";
+  sym.textContent = P.symbol || "N";
+  sym.style.color = P.symbol_color || "#FFFFFF";
+  label.textContent = P.label || "";
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  // Card pop-in with subtle overshoot
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 0);
+
+  // Glow pulse (appear → pulse → fade)
+  tl.to("#glow", { opacity: 1, duration: 0.3 }, 0.3);
+  tl.to("#glow", { scale: 1.15, duration: 1.2, ease: "power2.inOut", yoyo: true, repeat: 1 }, 0.6);
+
+  // Label fades up after icon lands
+  tl.to("#label", { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.7);
+
+  // Hold
+  tl.to({}, { duration: Math.max(0.1, D - 2.2) }, 2.2);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

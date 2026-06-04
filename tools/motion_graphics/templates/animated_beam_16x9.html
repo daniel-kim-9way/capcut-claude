@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>animated_beam motion (16:9 — A → flow → B)</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1920px; height: 1080px; }
+
+  .card {
+    position: relative;
+    width: 1700px;
+    height: 800px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    box-sizing: border-box;
+    opacity: 0;
+    transform: scale(0.96);
+    overflow: hidden;
+  }
+
+  .title {
+    position: absolute;
+    top: 60px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: var(--fs-h4);
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: var(--ls-wide);
+    opacity: 0;
+  }
+
+  .nodes {
+    position: absolute;
+    top: 200px;
+    left: 0;
+    right: 0;
+    height: 460px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 140px;
+  }
+
+  .node {
+    width: 280px;
+    height: 280px;
+    border-radius: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: 0;
+    transform: scale(0.7);
+    z-index: 3;
+    position: relative;
+  }
+  .node.left { background: #000000; }
+  .node.right { background: #FFFFFF; }
+
+  .node-symbol {
+    font-size: 160px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: var(--ls-tight);
+  }
+  .node.left .node-symbol { color: #FFFFFF; }
+  .node.right .node-symbol { color: #191919; }
+
+  .node-label {
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: var(--ls-snug);
+  }
+  .node.left .node-label { color: #C9C9C9; }
+  .node.right .node-label { color: #606060; }
+
+  /* SVG beam */
+  svg.beam-svg {
+    position: absolute;
+    top: 200px;
+    left: 0;
+    width: 100%;
+    height: 460px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .beam-path {
+    fill: none;
+    stroke: var(--accent-purple);
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+  .beam-glow {
+    fill: var(--accent-purple);
+    filter: drop-shadow(0 0 14px rgba(179, 102, 255, 0.85));
+    opacity: 0;
+  }
+
+  .footer {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--text-primary);
+    opacity: 0;
+    letter-spacing: var(--ls-snug);
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="title" id="title"></div>
+
+      <div class="nodes">
+        <div class="node left" id="nodeL">
+          <div class="node-symbol" id="symL">A</div>
+          <div class="node-label" id="labelL">Source</div>
+        </div>
+        <div class="node right" id="nodeR">
+          <div class="node-symbol" id="symR">B</div>
+          <div class="node-label" id="labelR">Destination</div>
+        </div>
+      </div>
+
+      <svg class="beam-svg" viewBox="0 0 1700 460" preserveAspectRatio="none">
+        <path id="beamPath" class="beam-path" d="M 280 230 C 600 60, 1100 400, 1420 230" />
+        <circle id="beamDot" class="beam-glow" r="14" cx="280" cy="230" />
+      </svg>
+
+      <div class="footer" id="footer"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "데이터 흐름",
+    left:  { symbol: "A",  label: "사용자",   bg: "#000000", color: "#FFFFFF" },
+    right: { symbol: "B",  label: "Claude",   bg: "#D77757", color: "#FFFFFF" },
+    footer: "실시간 연결",
+    duration: 5.5,
+  };
+
+  document.getElementById("title").textContent = P.title || "";
+  document.getElementById("symL").textContent = (P.left && P.left.symbol) || "A";
+  document.getElementById("labelL").textContent = (P.left && P.left.label) || "";
+  document.getElementById("symR").textContent = (P.right && P.right.symbol) || "B";
+  document.getElementById("labelR").textContent = (P.right && P.right.label) || "";
+  document.getElementById("footer").textContent = P.footer || "";
+
+  if (P.left && P.left.bg) document.getElementById("nodeL").style.background = P.left.bg;
+  if (P.left && P.left.color) document.getElementById("symL").style.color = P.left.color;
+  if (P.right && P.right.bg) document.getElementById("nodeR").style.background = P.right.bg;
+  if (P.right && P.right.color) document.getElementById("symR").style.color = P.right.color;
+
+  // Beam path setup — animated stroke
+  const beam = document.getElementById("beamPath");
+  const length = beam.getTotalLength();
+  beam.style.strokeDasharray = length;
+  beam.style.strokeDashoffset = length;
+
+  const dot = document.getElementById("beamDot");
+
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, scale: 1, duration: 0.5, ease: "power3.out" }, 0);
+  tl.to("#title", { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.4);
+
+  // Left node enters
+  tl.to("#nodeL", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 0.6);
+
+  // Beam draws
+  tl.to(beam, { strokeDashoffset: 0, duration: 1.4, ease: "power2.inOut" }, 1.0);
+
+  // Glowing dot follows the beam path (sample SVG path point per progress)
+  const dotState = { p: 0 };
+  tl.to(dot, { opacity: 1, duration: 0.2 }, 1.0);
+  tl.to(dotState, {
+    p: 1,
+    duration: 1.4,
+    ease: "power2.inOut",
+    onUpdate: () => {
+      const pt = beam.getPointAtLength(length * dotState.p);
+      dot.setAttribute("cx", pt.x);
+      dot.setAttribute("cy", pt.y);
+    },
+  }, 1.0);
+
+  // Right node enters as beam arrives
+  tl.to("#nodeR", { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.8)" }, 2.2);
+
+  // Dot pulses at destination
+  tl.to(dot, { scale: 1.6, duration: 0.25, transformOrigin: "center", ease: "power2.out" }, 2.6);
+  tl.to(dot, { scale: 1, duration: 0.4, ease: "power2.inOut" }, 2.85);
+
+  // Footer fade
+  tl.to("#footer", { opacity: 1, duration: 0.5, ease: "power2.out" }, 3.0);
+
+  const consumed = 3.5;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

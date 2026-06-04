@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "brands": {
+    "kakaotalk": {"display": "KakaoTalk", "hex": "#FAE100", "symbol_desc": "yellow rounded speech bubble with brown smile mark inside"},
+    "notion":    {"display": "Notion",    "hex": "#000000", "hex_dark": "#FFFFFF", "symbol_desc": "black 'N' logo symbol mark, monospace geometric"},
+    "toss":      {"display": "Toss",      "hex": "#3182F6", "symbol_desc": "blue simple 'T' mark"},
+    "coupang":   {"display": "쿠팡 Play", "hex": "#FF5200", "symbol_desc": "orange rocket / play triangle"},
+    "daangn":    {"display": "당근마켓",   "hex": "#FF7E36", "symbol_desc": "orange carrot outline"},
+    "baemin":    {"display": "배달의민족", "hex": "#2AC1BC", "symbol_desc": "mint typography logo"},
+    "naver":     {"display": "네이버",     "hex": "#03C75A", "symbol_desc": "green 'N' geometric sans"},
+    "instagram": {"display": "Instagram", "hex": "#DD2A7B", "symbol_desc": "camera icon with gradient from orange #F58529 to pink #DD2A7B to purple #8134AF"},
+    "youtube":   {"display": "YouTube",   "hex": "#FF0000", "symbol_desc": "red rounded rectangle with white play triangle"},
+    "gmail":     {"display": "Gmail",     "hex": "#EA4335", "symbol_desc": "envelope 'M' shape in red white blue yellow green accents"},
+    "slack":     {"display": "Slack",     "hex": "#4A154B", "symbol_desc": "colorful pound/hashtag-like symbol with purple, yellow, green, blue"},
+    "discord":   {"display": "Discord",   "hex": "#5865F2", "symbol_desc": "purple game-controller-face mascot"},
+    "linkedin":  {"display": "LinkedIn",  "hex": "#0A66C2", "symbol_desc": "blue rounded square with white 'in' text"},
+    "twitter":   {"display": "X (Twitter)", "hex": "#000000", "symbol_desc": "black 'X' mark"},
+    "chatgpt":   {"display": "ChatGPT",   "hex": "#10A37F", "symbol_desc": "green hexagonal knot / infinity symbol"},
+    "claude":    {"display": "Claude",    "hex": "#D97757", "symbol_desc": "orange asterisk / sparkle mark"}
+  }
+}
