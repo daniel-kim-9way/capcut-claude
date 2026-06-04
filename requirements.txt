@@ -4,7 +4,7 @@
 pycapcut>=0.5.0
 
 # STT (Step 1)
-requests>=2.31.0               # ElevenLabs Scribe (기본 STT 엔진) + FunnelMaster
+requests>=2.31.0               # ElevenLabs Scribe (기본 STT 엔진)
 faster-whisper>=1.0.0          # --stt-engine whisper 사용 시에만 필요 (옵션)
 
 # B-roll 이미지 생성 (Step 3)
@@ -18,7 +18,7 @@ playwright>=1.45.0
 Pillow>=10.0.0
 numpy>=1.26.0
 
-# 환경변수 로딩 (Step 6 FunnelMaster 업로더)
+# 환경변수 로딩 (.env API 키)
 python-dotenv>=1.0.0
 
 # (선택) Step 3-B Persona 리뷰 자동화

@@ -1,6 +1,6 @@
 # /capcut — CapCut 자동 편집 오케스트레이터 (Claude Code 버전)
 
-로컬 영상 → STT → 씬 분할 → 자막 교정 → B-roll → FX → 제목/캡션 → 업로드까지 자동화하는 **Claude Code 슬래시 커맨드**.
+로컬 영상 → STT → 씬 분할 → 자막 교정 → B-roll → FX → 제목/캡션 → 내보내기까지 자동화하는 **Claude Code 슬래시 커맨드**.
 
 7단계를 머신 검증(`verify_step.py`)으로 강제하며, **NG 컷팅과 B-roll 플래닝은 Claude(Opus 4.7)가 transcript을 직접 읽고 판단**합니다 (규칙 매칭 X).
 
@@ -43,7 +43,7 @@
 ├── tools/
 │   ├── capcut_pipeline/                ← Python 도구 + templates/ (preset SoT)
 │   ├── motion_graphics/                ← 40개 motion 템플릿 + 카탈로그
-│   └── reels_pipeline/                 ← broll_generator + funnelmaster_uploader
+│   └── reels_pipeline/                 ← broll_generator
 ├── BGM/                                ← 5개 mp3 + effect/1.wav
 └── .env                                ← .env.example 복사 후 키 채우기
 ```
@@ -111,7 +111,7 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py all --name <n
 | 3 | B-roll 6타입 + Motion + 블루 크로마 | `verify_step.py 3` |
 | 4 | 제목 (20자) + IG 캡션 (400-600자) | `verify_step.py 4` |
 | 5 | filter·BGM·SFX·effects·animations | `verify_step.py 5` |
-| 6 | final.mp4 + (선택) FunnelMaster 업로드 | `verify_step.py 6` |
+| 6 | final.mp4 내보내기 | `verify_step.py 6` |
 
 상세는 [.claude/commands/capcut.md](.claude/commands/capcut.md) 참조.
 

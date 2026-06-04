@@ -443,10 +443,10 @@ def step5(name: str) -> Result:
 
 
 # ---------------------------------------------------------------------------
-# Step 6 — upload
+# Step 6 — final export
 # ---------------------------------------------------------------------------
 
-def step6(name: str, gen_id: str | None = None) -> Result:
+def step6(name: str) -> Result:
     r = Result("step6")
     final = output_dir(name) / "deliverables" / "final.mp4"
     if not final.exists():
@@ -458,22 +458,6 @@ def step6(name: str, gen_id: str | None = None) -> Result:
     r.note("final_size_mb", f"{size / 1e6:.1f}")
     if size < 1_000_000:
         r.fail(f"final.mp4 too small ({size} bytes; need >1MB)")
-
-    state_p = draft_dir(name) / ".omc_upload_state.json"
-    video_url = None
-    if state_p.exists():
-        try:
-            st = _load_json(state_p)
-            video_url = st.get("video_url")
-        except Exception:
-            pass
-    r.note("video_url", "yes" if video_url else "no")
-    if not video_url:
-        r.warn("no video_url recorded — upload step may not have completed")
-
-    if gen_id:
-        r.note("gen_id_arg", gen_id)
-        r.warn("gen-id cross-verify via FunnelMaster status not implemented in offline verifier")
 
     return r
 
@@ -493,15 +477,12 @@ STEP_FUNCS = {
 }
 
 
-def run_all(name: str, gen_id: str | None = None) -> int:
+def run_all(name: str) -> int:
     results: list[Result] = []
     for key in ["1", "2", "2.5", "3", "4", "5", "6"]:
         fn = STEP_FUNCS[key]
         try:
-            if key == "6":
-                res = fn(name, gen_id)  # type: ignore[arg-type]
-            else:
-                res = fn(name)
+            res = fn(name)
         except Exception as e:
             res = Result(f"step{key}")
             res.fail(f"exception: {e}")
@@ -519,11 +500,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("step", nargs="?", help="Step number: 1, 2, 2.5, 3, 4, 5, 6")
     p.add_argument("--name", required=True, help="Project name (draft dir stem)")
     p.add_argument("--all", action="store_true", help="Run all steps sequentially")
-    p.add_argument("--gen-id", default=None, help="[step6] FunnelMaster generation_id (optional)")
     args = p.parse_args(argv)
 
     if args.all:
-        return run_all(args.name, args.gen_id)
+        return run_all(args.name)
 
     if not args.step:
         print("error: step number required (or use --all)", file=sys.stderr)
@@ -534,10 +514,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fn = STEP_FUNCS[args.step]
     try:
-        if args.step == "6":
-            res = fn(args.name, args.gen_id)  # type: ignore[arg-type]
-        else:
-            res = fn(args.name)
+        res = fn(args.name)
     except Exception as e:
         res = Result(f"step{args.step}")
         res.fail(f"exception: {e}")

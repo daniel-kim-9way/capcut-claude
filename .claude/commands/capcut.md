@@ -1,6 +1,6 @@
 # /capcut — CapCut 자동 편집 오케스트레이터
 
-로컬 영상 → STT → 씬 분할 → 드래프트 → B-roll → **FX** → 제목/캡션 → 업로드.
+로컬 영상 → STT → 씬 분할 → 드래프트 → B-roll → **FX** → 제목/캡션 → 내보내기.
 
 이 커맨드는 **오케스트레이터**입니다. 세부 작업은 각 단계의 스킬 파일을 **반드시 Read하고** 그 안의 체크리스트를 따라 수행합니다.
 
@@ -421,23 +421,19 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 5 --name <nam
 
 ---
 
-### Step 6 — 최종 확인 + FunnelMaster 업로드
+### Step 6 — 최종 확인 + 내보내기
 
-⛔ **STOP. Call `Read('.claude/skills/capcut-deliverables/SKILL.md')` NOW.** (§ FunnelMaster 업로드 부분 중점)
+⛔ **STOP. Call `Read('.claude/skills/capcut-deliverables/SKILL.md')` NOW.** (§ script.txt 생성 부분 중점)
 
 할 일:
 1. CapCut 열어 재생 확인 → NG 씬 정리 → 내보내기 → `output/<name>/deliverables/final.mp4`
-2. SRT → plain `script.txt` 변환
-3. FunnelMaster 업로드 3단계:
-   - `narration` 생성 → `generation_id` 메모
-   - `video` 업로드
-   - `status` 조회 → `video_url` 확인
+2. (선택) SRT → plain `script.txt` 변환
 
 **게이트** (머신 검증):
 ```bash
-PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 6 --name <name> [--gen-id N]
+PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 6 --name <name>
 ```
-→ `[step6] PASS: final.mp4=XX MB, video_url=...`
+→ `[step6] PASS: final.mp4=XX MB`
 
 ---
 
@@ -506,7 +502,7 @@ Registry: tools/capcut_pipeline/templates/_registry.json  (preset SoT)
 | Step 3 | [capcut-broll](../skills/capcut-broll/SKILL.md) | DECISION_TREE, scene_designer, overlay_patcher, Gemini |
 | Step 4 | [capcut-deliverables](../skills/capcut-deliverables/SKILL.md) | title/caption 톤 규칙 |
 | Step 5 ⭐ | [capcut-fx](../skills/capcut-fx/SKILL.md) | filter·bgm·sfx·effects·animations 주입 |
-| Step 6 | [capcut-deliverables](../skills/capcut-deliverables/SKILL.md) | FunnelMaster 업로드 4단계 |
+| Step 6 | [capcut-deliverables](../skills/capcut-deliverables/SKILL.md) | 최종 확인 + 내보내기 + script.txt 변환 |
 | 참조 | [capcut-project](../skills/capcut-project/SKILL.md) | CapCut JSON 스키마 레퍼런스 |
 
 ---
@@ -515,7 +511,6 @@ Registry: tools/capcut_pipeline/templates/_registry.json  (preset SoT)
 
 ```env
 GOOGLE_AI_API_KEY=...       # Gemini B-roll 이미지 생성 (Step 3)
-FUNNELMASTER_API_KEY=...    # FunnelMaster 업로드 (Step 6)
 ```
 
 **Windows (bash)**:
@@ -533,7 +528,7 @@ FUNNELMASTER_API_KEY=...    # FunnelMaster 업로드 (Step 6)
 - [ ] Step 3: B-roll plan + 이미지 + overlay 패치 + emphasis track 존재 → `verify_step.py 3`
 - [ ] Step 4: title.txt(20자) + ig_caption.txt(400-600자) → `verify_step.py 4`
 - [ ] **Step 5: fx_plan.json 6키 + `[PASS]` + 패치 로그 6개 `[ok]`** ⭐ → `verify_step.py 5`
-- [ ] Step 6: 영상 내보내기 + FunnelMaster 업로드 + `video_url` 수령 → `verify_step.py 6`
+- [ ] Step 6: 영상 내보내기 (final.mp4) → `verify_step.py 6`
 
 **모든 게이트 PASS 전 완료 선언 금지.**
 
