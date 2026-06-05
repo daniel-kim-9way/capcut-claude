@@ -956,7 +956,7 @@ def ingest(
                     "color": emp.get("color", "#FFFFFF"),
                     "accent_color": emp.get("accent_color", "#FFD54F"),
                     "stroke_width": emp.get("stroke_width", 0.04),
-                    "font_name": emp.get("font_name", "아네모네"),
+                    "font_name": emp.get("font_name", "Pretendard Black"),  # 2026-06-04: 기본 폰트 "아네모네"(userFontData 미등록) → "Pretendard Black"
                 }
                 emphases.append(emphasis_entry)
 

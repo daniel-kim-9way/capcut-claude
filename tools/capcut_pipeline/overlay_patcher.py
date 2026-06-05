@@ -172,17 +172,35 @@ DEFAULT_FONT = r"C:\Users\kbjhh\AppData\Local\Microsoft\Windows\Fonts\ODITTABILI
 
 
 def _decode_capcut_key(key: str) -> str:
-    """CapCut userFontData 키 (%UXXXX 형식) 을 실제 문자열로 디코드.
-    CapCut 은 한글을 NFD (자모 분해) 로 저장하므로 NFC 정규화 필수.
+    """CapCut userFontData 키를 실제 문자열로 디코드.
+
+    CapCut 은 폰트명을 **혼합 인코딩**으로 저장한다:
+      - 한글/비ASCII → ``%UXXXX`` (4 hex). NFD(자모 분해) 라 NFC 정규화 필수.
+      - 공백 등 ASCII 특수문자 → ``%XX`` 표준 URL percent (2 hex). 예: ``%20``=공백.
+    예) ``Pretendard%20Black`` → "Pretendard Black",
+        ``Od%UC788%UC5B4...`` → "Od있어빌리티".
+    과거엔 ``%UXXXX``만 처리해 "Pretendard Black"(공백 ``%20``)을 못 찾아
+    emphasis 폰트가 CapCut System으로 폴백됐다 (2026-06-04 fix).
     """
     import unicodedata
     out = []
     i = 0
-    while i < len(key):
-        if key[i] == "%" and i + 5 < len(key) and key[i + 1] in ("U", "u"):
+    n = len(key)
+    while i < n:
+        if key[i] == "%" and i + 1 < n and key[i + 1] in ("U", "u"):
+            # %UXXXX — CapCut 유니코드(4 hex)
+            if i + 6 <= n:
+                try:
+                    out.append(chr(int(key[i + 2:i + 6], 16)))
+                    i += 6
+                    continue
+                except ValueError:
+                    pass
+        if key[i] == "%" and i + 3 <= n:
+            # %XX — 표준 URL percent(2 hex). %20(공백) 등.
             try:
-                out.append(chr(int(key[i + 2:i + 6], 16)))
-                i += 6
+                out.append(chr(int(key[i + 1:i + 3], 16)))
+                i += 3
                 continue
             except ValueError:
                 pass
@@ -738,7 +756,7 @@ def patch(
             "color": title_cfg.get("color", "#FFFFFF"),
             "accent_color": title_cfg.get("accent_color", "#B366FF"),
             "stroke_width": float(title_cfg.get("stroke_width", 0.06)),
-            "font_name": title_cfg.get("font_name", "아네모네"),
+            "font_name": title_cfg.get("font_name", "Pretendard Black"),  # 2026-06-04: 미설치 "아네모네" → 등록된 "Pretendard Black" (System 폴백 방지)
             "font_path": title_cfg.get("font_path"),
         }
         emphases.insert(0, title_emp)
