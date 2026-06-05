@@ -22,8 +22,14 @@ broll_plan.json 형식:
           "image_path": "abs/path/to/broll.png",
           "image_width": 1080,
           "image_height": 1920,
-          "opacity": 1.0,       // optional
-          "ratio": 0.55         // optional (split only)
+          "opacity": 1.0,            // optional
+          "ratio": 0.55,            // optional (split only)
+          // --- 신규 optional 필드 (2026-06-04, 전부 default가 기존 동작 보존) ---
+          "start_offset_sec": 0.0,  // CE-01: overlay 등장 시점(씬 시작 기준 초). default 0.
+          "display_dur_sec": null,  // CE-01: 표시 길이(초). null이면 MOV=intrinsic / static=글자수.
+          "position_y": "top",      // CE-02/CE-03: overlay 세로 슬롯 top/center/lower. default top.
+          "overlay_h_ratio": 0.55,  // CE-02: overlay 가로 점유 비율(기존 ratio 의미). 미지정 시 ratio.
+          "auto_crop_margins": false // CE-04: 정적 overlay PNG 위아래 투명여백 크롭(opt-in).
         },
         ...
       ]
@@ -330,6 +336,134 @@ def emphasis_position_y(position: str) -> float:
     }.get(position, 0.7)
 
 
+# ===== CE-02/CE-03 (2026-06-04): overlay position_y 슬롯 → transform.y 매핑 =====
+# CONTRACT §2 준수. CapCut 좌표: y 양수=위, 음수=아래. 자막 y≈-0.234(하단),
+# 얼굴 세이프존 = 정중앙 normalized -0.15 ~ +0.15 (정적 토킹헤드 가정).
+# overlay/dual 카드의 "중심 transform.y"를 슬롯명으로 고른다. 자유 float 금지.
+#   - "top"    : 상단(얼굴 위). 기존 overlay 하드코딩 0.55와 동일 동작(하위호환 default).
+#   - "center" : 0.0 (얼굴 위 — 비권장. CE-03 가드가 경고).
+#   - "lower"  : 자막 바로 위 빈 공간. 카드 하단이 자막존(-0.20)을 넘지 않게 CE-03가 보정.
+# 미지정(=None)이면 top으로 떨어져 현재 동작 보존.
+SUBTITLE_ZONE_Y = -0.234          # 자막 중심 y (CONTRACT §2)
+SUBTITLE_ZONE_GUARD = -0.20       # 카드 하단이 이 값보다 내려가면 자막존 침범
+FACE_SAFEZONE_HALF = 0.15         # 얼굴 세이프존 = 정중앙 ±0.15 (정적 토킹헤드)
+
+
+def overlay_position_y(position: str) -> float:
+    """overlay/dual 카드 중심의 normalized transform.y 슬롯 매핑.
+
+    값은 "카드 중심" 기준이며, 실제 카드 높이를 모르는 상태의 기본 슬롯이다.
+    bbox 기반 정밀 보정(자막존/얼굴존 회피)은 _guard_overlay_zone()이 수행한다.
+    미지정/미인식 슬롯은 기존 overlay 하드코딩과 동일한 top(0.55)으로 폴백.
+    """
+    return {
+        "top": 0.55,     # 기존 overlay 하드코딩 값 그대로(하위호환)
+        "center": 0.0,
+        "lower": -0.05,  # 자막 바로 위. CE-03가 카드 높이 따라 추가 보정
+    }.get(position, 0.55)
+
+
+def _overlay_render_half_height_norm(
+    style: str, target_ratio: float,
+    canvas_w: int, canvas_h: int,
+    material_w: int, material_h: int,
+) -> float:
+    """overlay/dual 카드의 화면 내 정규화 세로 반높이(half-height) 계산.
+
+    style_clip_and_uniform과 동일한 scale 공식을 재사용:
+      scale_value = target_ratio × (canvas_w / material_w)
+      렌더 픽셀 높이 = material_h × scale_value
+      정규화 높이   = 렌더 픽셀 높이 / canvas_h
+      half-height   = 정규화 높이 / 2
+    split은 자체적으로 자막과 안 겹치게 main을 밀어내므로 가드 대상 아님 → 0 반환.
+    """
+    if style not in ("overlay", "dual"):
+        return 0.0
+    if material_w <= 0:
+        material_w = canvas_w
+    if canvas_h <= 0 or material_h <= 0:
+        return 0.0
+    scale_value = target_ratio * (canvas_w / float(material_w))
+    render_h_px = material_h * scale_value
+    h_norm = render_h_px / float(canvas_h)
+    return h_norm / 2.0
+
+
+def _guard_overlay_zone(
+    style: str, pos_y: float, half_h: float, scene_label: str = "",
+) -> float:
+    """CE-03: overlay/dual bbox가 자막존/얼굴 세이프존을 침범하면 상단 push + 경고.
+
+    bbox = [pos_y - half_h, pos_y + half_h] (CapCut 좌표, 양수=위).
+    - 카드 하단(pos_y - half_h)이 자막존 가드(-0.20)보다 아래로 내려가면 → 위로 push.
+    - 카드가 얼굴 세이프존(중앙 ±0.15)을 침범하면 → 세이프존 위로 push.
+    경고는 stderr로만 출력(warning-only, hard-block 아님). split은 패스(self-resolve).
+    반환: 보정된 pos_y (침범 없으면 입력 그대로).
+    """
+    import sys
+    if style not in ("overlay", "dual") or half_h <= 0:
+        return pos_y
+
+    new_y = pos_y
+    bottom = pos_y - half_h  # 카드 하단 y (작을수록 아래)
+    top = pos_y + half_h     # 카드 상단 y
+
+    # (a) 자막존 침범: 카드 하단이 -0.20보다 아래 → 카드 하단을 -0.20에 맞춤
+    if bottom < SUBTITLE_ZONE_GUARD:
+        new_bottom = SUBTITLE_ZONE_GUARD
+        pushed = new_bottom + half_h
+        print(
+            f"[CE-03 warn]{(' ' + scene_label) if scene_label else ''} "
+            f"overlay 카드 하단({bottom:+.3f})이 자막존({SUBTITLE_ZONE_Y:+.3f}) 침범 "
+            f"→ transform.y {new_y:+.3f}→{pushed:+.3f} 상단 push",
+            file=sys.stderr,
+        )
+        new_y = pushed
+        bottom = new_y - half_h
+        top = new_y + half_h
+
+    # (b) 얼굴 세이프존(중앙 ±0.15) 침범: 카드가 세이프존과 겹치면 세이프존 위로 push.
+    #     겹침 조건 = (bottom < +0.15) and (top > -0.15).
+    if bottom < FACE_SAFEZONE_HALF and top > -FACE_SAFEZONE_HALF:
+        # 카드 하단을 얼굴 세이프존 상단(+0.15) 위로 올림.
+        pushed = FACE_SAFEZONE_HALF + half_h
+        if pushed > new_y:  # 위로만 밀어냄(아래로 끌어내리지 않음)
+            print(
+                f"[CE-03 warn]{(' ' + scene_label) if scene_label else ''} "
+                f"overlay 카드(bbox [{bottom:+.3f},{top:+.3f}])가 얼굴 세이프존"
+                f"(±{FACE_SAFEZONE_HALF}) 침범 → transform.y {new_y:+.3f}→{pushed:+.3f} 상단 push",
+                file=sys.stderr,
+            )
+            new_y = pushed
+
+    # 상단 클램프: 카드 상단이 화면 밖(>1.0)으로 너무 나가지 않게 보호.
+    if new_y + half_h > 1.0:
+        clamped = 1.0 - half_h
+        if clamped < new_y:
+            new_y = clamped
+
+    return new_y
+
+
+def auto_static_overlay_dur_us(text: str | None, scene_remaining_us: int) -> int:
+    """CE-01: 정적 PNG overlay 표시 길이 자동 산정 (display_dur 미지정 시).
+
+    글자수 기반: len/13 + 0.7s 버퍼. 2.5~7s clamp. 항상 씬 잔여 길이로 추가 clamp.
+    text 미제공(None/빈문자)이면 기본 3.5s를 씬 잔여로 clamp.
+    MOV overlay는 intrinsic timeline 길이를 쓰므로 이 함수 대상 아님.
+    """
+    n = len(text) if text else 0
+    if n > 0:
+        dur_sec = n / 13.0 + 0.7
+    else:
+        dur_sec = 3.5
+    dur_sec = max(2.5, min(7.0, dur_sec))
+    dur_us = int(dur_sec * SEC)
+    if scene_remaining_us > 0:
+        dur_us = min(dur_us, scene_remaining_us)
+    return dur_us
+
+
 def make_emphasis_text_material(
     tpl: dict,
     text: str,
@@ -429,24 +563,96 @@ def make_emphasis_text_material(
     return mat
 
 
+def crop_vertical_transparent_margins(
+    img_path: str, out_dir: Path | None = None, alpha_threshold: int = 0,
+) -> tuple[str, int, int] | None:
+    """CE-04 (2026-06-04): 정적 PNG 카드의 위아래 투명 여백만 자동 크롭/리프레임.
+
+    16:9 카드 material은 1920×1080 viewport 중앙 정렬이라 위아래 투명 padding이 크고,
+    overlay scale 공식상 캔버스 세로의 ~17%만 차지한다. 위아래 투명 여백을 잘라내면
+    동일 가로 점유율(overlay_h_ratio)을 유지하면서 콘텐츠가 box를 꽉 채워 더 크게 보인다.
+
+    설계(revision_note 준수):
+      - ffmpeg cropdetect 대신 PIL alpha 채널 getbbox 사용(반투명 카드는 alpha>0 전 영역이
+        content이므로 정확). glow/blur는 alpha>0이라 자연히 포함 → 클립 방지.
+      - **세로 padding만 제거, 가로(width)는 보존**. 가로까지 크롭하면 scale 공식이
+        material_w를 입력으로 width-anchored 재계산하므로 의도치 않은 확대가 생긴다.
+      - 크롭본을 <stem>.cropped.png로 저장하고 (path, new_w, new_h) 반환.
+      - 크롭 불필요(여백 거의 없음)·실패·PIL 미설치·비PNG면 None 반환 → 호출부는 원본 사용.
+
+    Returns: (cropped_path, new_w, new_h) 또는 None.
+    """
+    import sys
+    if Image is None:
+        return None
+    p = Path(img_path)
+    if p.suffix.lower() not in (".png",):
+        return None  # 알파 채널 없는 포맷은 대상 아님(MOV/JPG 등은 통합 노트 참조)
+    try:
+        with Image.open(p) as im:
+            im = im.convert("RGBA")
+            w, h = im.size
+            alpha = im.getchannel("A")
+            if alpha_threshold > 0:
+                alpha = alpha.point(lambda a: 255 if a > alpha_threshold else 0)
+            bbox = alpha.getbbox()  # (left, upper, right, lower) — 불투명 경계
+            if bbox is None:
+                return None  # 완전 투명 → 크롭 의미 없음
+            _, upper, _, lower = bbox
+            # 세로 padding만 제거. 가로는 0~w 그대로 보존(scale 공식 width-anchor 보호).
+            top_pad = upper
+            bot_pad = h - lower
+            # 위아래 합쳐 세로의 4% 미만이면 크롭 이득 미미 → skip(무한 재처리/노이즈 방지).
+            if (top_pad + bot_pad) < max(2, int(h * 0.04)):
+                return None
+            cropped = im.crop((0, upper, w, lower))
+            new_w, new_h = cropped.size
+            if new_h <= 0 or new_w <= 0:
+                return None
+            target_dir = out_dir if out_dir is not None else p.parent
+            target_dir.mkdir(parents=True, exist_ok=True)
+            out_path = target_dir / f"{p.stem}.cropped.png"
+            cropped.save(out_path, "PNG")
+            print(
+                f"[CE-04] {p.name}: 세로 투명여백 크롭 {w}x{h} → {new_w}x{new_h} "
+                f"(top={top_pad}px, bottom={bot_pad}px)",
+                file=sys.stderr,
+            )
+            return (str(out_path), new_w, new_h)
+    except Exception as e:  # 크롭 실패는 치명적이지 않음 — 원본으로 폴백.
+        print(f"[CE-04 warn] crop 실패 ({img_path}): {e} → 원본 사용", file=sys.stderr)
+        return None
+
+
 def style_clip_and_uniform(
     style: str, opacity: float, ratio: float, side: str = "center",
     img_aspect: float = 1.0,
     canvas_w: int = 2160, canvas_h: int = 3840,
     material_w: int = 1920, material_h: int = 1080,
+    overlay_pos_y: float | None = None,
+    overlay_h_ratio: float | None = None,
 ) -> tuple[dict, dict]:
     """오버레이 스타일별 (clip, uniform_scale) 반환.
 
-    ⚠️ CapCut scale 규칙 (2026-04-24 최종 확정):
+    CE-02 (2026-06-04): overlay 분기의 transform.y / target_ratio 하드코딩 0.55를
+    인자로 분리. 변수명 혼동 제거를 위해 세로위치=overlay_pos_y, 가로점유=overlay_h_ratio
+    로 분리한다. 둘 다 None이면 기존 동작(0.55/0.55)을 그대로 유지(하위호환).
+      - overlay_pos_y   : overlay 카드 중심 transform.y (None → 0.55, 기존 동작)
+      - overlay_h_ratio : overlay 가로 점유 비율 (None → ratio 인자, 그래도 None이면 0.55)
+    uniform_scale.value는 항상 1.0 불변(아래 docstring 경고 참조).
+
+    ⚠️ CapCut scale 규칙 (2026-05-29 재확정 — 이전 "세 값 일치" 가정은 버그였음):
        - CapCut의 clip.scale은 material 원본 픽셀에 곱해지는 배율 (절대 pixel 기준).
+         실제 렌더 크기는 **오직 clip.scale.x/y**가 결정한다.
        - uniform_scale.on=True = CapCut UI의 **Aspect Lock(가로세로 비율 고정)** 플래그.
-         사용자가 UI에서 리사이즈할 때 양축 동시 스케일 되도록.
-       - uniform_scale.value + scale.x + scale.y 세 값이 **모두 일치**해야 CapCut이 값을
-         유지 (재계산/자동 fit 트리거 안 함). 불일치 시 canvas-material aspect 기반으로
-         scale.x/y를 자동 재계산하여 비율 왜곡 발생.
-       - 따라서 overlay/dual 에서 scale = target_ratio × (canvas_w / material_w) 공식으로
-         정확한 배율 계산 → uniform.value와 clip.scale.x/y 모두 동일값으로 세팅.
-       - split 은 전체 화면 너비 fit이 목적이라 기존 on=False + value=1.0 유지.
+       - ⛔ uniform_scale.value는 **항상 1.0**이어야 한다 (Aspect Lock의 기준 배율).
+         여기에 clip.scale과 같은 크기값(예: 0.37)을 넣으면 CapCut이 첫 로드 시
+         value를 크기에 **이중 적용**해 overlay를 세로로 길게 왜곡시킨다.
+         (실측: value=0.37 + scale=0.37 → 세로로 찌그러짐. UI에서 Aspect Lock을
+          껐다 켜면 CapCut이 value를 1.0으로 리셋하며 정상화됨.)
+       - 따라서 크기 = clip.scale.x = clip.scale.y = target_ratio × (canvas_w / material_w),
+         그리고 **uniform_scale = {on: True, value: 1.0}** 으로 고정.
+       - split 도 동일하게 value=1.0 (전체 화면 너비 fit).
 
     좌표계: y 양수 = 상단, y 음수 = 하단 (비디오 트랙).
     """
@@ -474,21 +680,25 @@ def style_clip_and_uniform(
         return clip, uniform
     if style == "overlay":
         # target_ratio = overlay가 canvas 가로의 몇 %를 차지할지 (기본 55%)
-        # scale_value = material 원본 픽셀에 곱해져 canvas 위의 실제 렌더 크기를 결정
-        # uniform_scale.on=True + value=scale_value + scale.x=scale.y=scale_value 로 일치시키면
-        # CapCut UI에서 aspect lock이 유지되면서 우리 계산이 재계산 없이 보존됨.
-        target_ratio = 0.55
+        # 크기는 clip.scale.x/y가 결정. uniform_scale.value는 1.0 고정(위 docstring 참조).
+        # CE-02: 하드코딩 대신 overlay_h_ratio(가로점유) / overlay_pos_y(세로위치) 인자 사용.
+        # None이면 각각 0.55로 폴백 → 기존 동작 그대로 보존.
+        h_ratio = overlay_h_ratio
+        if h_ratio is None:
+            h_ratio = ratio if ratio is not None else 0.55
+        pos_y = overlay_pos_y if overlay_pos_y is not None else 0.55
+        target_ratio = h_ratio
         if material_w <= 0:
             material_w = canvas_w
         scale_value = target_ratio * (canvas_w / float(material_w))
         clip = {
             "scale": {"x": scale_value, "y": scale_value},
             "rotation": 0.0,
-            "transform": {"x": 0.0, "y": 0.55},
+            "transform": {"x": 0.0, "y": pos_y},
             "flip": {"vertical": False, "horizontal": False},
             "alpha": opacity,
         }
-        uniform = {"on": True, "value": scale_value}
+        uniform = {"on": True, "value": 1.0}
         return clip, uniform
     if style == "dual":
         target_ratio = 0.42
@@ -503,7 +713,7 @@ def style_clip_and_uniform(
             "flip": {"vertical": False, "horizontal": False},
             "alpha": opacity,
         }
-        uniform = {"on": True, "value": scale_value}
+        uniform = {"on": True, "value": 1.0}
         return clip, uniform
     raise ValueError(f"Unknown style: {style!r} (expected split|overlay|dual)")
 
@@ -601,7 +811,29 @@ def patch(
     def _make_broll_segment(img_path_str: str, img_w: int, img_h: int,
                             start_us: int, duration_us: int,
                             style: str, opacity: float, ratio: float,
-                            render_idx: int, side: str = "center") -> dict:
+                            render_idx: int, side: str = "center",
+                            position_y: str | None = None,
+                            overlay_h_ratio: float | None = None,
+                            text_for_dur: str | None = None,
+                            display_dur_us: int | None = None,
+                            scene_label: str = "",
+                            auto_crop: bool = False) -> dict:
+        # CE-01/CE-02/CE-03/CE-04 (2026-06-04):
+        #   position_y       : overlay/dual 세로위치 슬롯(top/center/lower). None→top(기존 0.55).
+        #   overlay_h_ratio  : overlay 가로 점유 비율. None이면 ratio 인자 사용(하위호환).
+        #   text_for_dur     : 정적 PNG display_dur 자동 산정용 텍스트(글자수 기반).
+        #   display_dur_us   : plan에서 명시한 표시 길이(µs). 지정 시 우선. 항상 씬 잔여로 clamp.
+        #   scene_label      : stderr 경고용 라벨.
+        #   auto_crop        : CE-04 — overlay 정적 PNG 위아래 투명여백 크롭(opt-in, 기본 off).
+        # CE-04: overlay 정적 PNG 위아래 투명여백 자동 크롭(opt-in). 가로 보존 → scale 공식
+        # 그대로 가로 점유율 유지, content만 box를 꽉 채워 더 크게 보임. 실패 시 원본 폴백.
+        if auto_crop and style == "overlay":
+            _suf = Path(img_path_str).suffix.lower()
+            if _suf not in VIDEO_OVERLAY_EXTS:
+                cropped = crop_vertical_transparent_margins(img_path_str)
+                if cropped is not None:
+                    img_path_str, img_w, img_h = cropped
+
         new_mat_id = new_uuid_simple()
         new_mat = deepcopy(tpl_video_mat)
         new_mat["id"] = new_mat_id
@@ -615,15 +847,20 @@ def patch(
         suffix = Path(img_path_str).suffix.lower()
         is_video_overlay = suffix in VIDEO_OVERLAY_EXTS
 
+        # CE-01: display_dur 적용. duration_us는 호출부에서 이미 (씬길이 - offset)으로
+        # 산정된 "씬 잔여 길이"다. 항상 이 값으로 상한 clamp한다(씬 경계 보호).
         if is_video_overlay:
             video_dur_us = _probe_video_duration_us(Path(img_path_str))
             if video_dur_us <= 0:
                 raise ValueError(
                     f"ffprobe could not read duration of video overlay: {img_path_str}"
                 )
-            # The overlay plays its natural length; if scene is longer the
-            # remaining scene time has no overlay (intentional — not a loop).
+            # MOV는 intrinsic timeline 길이를 그대로 사용(GSAP 등장/fade tail 포함).
+            # 씬보다 길면 잔여 씬길이로 clamp(나머지 구간엔 overlay 없음 — 루프 아님, 의도적).
             effective_us = min(duration_us, video_dur_us)
+            # display_dur_sec를 명시했으면 추가 상한으로만 적용(intrinsic보다 짧게 자르기).
+            if display_dur_us is not None and display_dur_us > 0:
+                effective_us = min(effective_us, display_dur_us)
             new_mat["type"] = "video"
             new_mat["width"] = img_w
             new_mat["height"] = img_h
@@ -631,12 +868,21 @@ def patch(
             src_dur_us = effective_us
             tgt_dur_us = effective_us
         else:
+            # 정적 PNG: display_dur_us 명시 시 우선, 미지정 시 글자수 기반 자동 산정.
+            # (미지정인데 text도 없으면 auto_static_overlay_dur_us가 기본 3.5s 사용)
+            if display_dur_us is not None and display_dur_us > 0:
+                static_dur = min(display_dur_us, duration_us) if duration_us > 0 else display_dur_us
+            elif text_for_dur is not None:
+                static_dur = auto_static_overlay_dur_us(text_for_dur, duration_us)
+            else:
+                # text/display_dur 둘 다 미지정 → 기존 동작(씬 잔여 전체 재생) 보존.
+                static_dur = duration_us
             new_mat["type"] = "photo"
             new_mat["width"] = img_w
             new_mat["height"] = img_h
-            new_mat["duration"] = duration_us
-            src_dur_us = duration_us
-            tgt_dur_us = duration_us
+            new_mat["duration"] = static_dur
+            src_dur_us = static_dur
+            tgt_dur_us = static_dur
 
         if "has_audio" in new_mat:
             new_mat["has_audio"] = False
@@ -659,10 +905,28 @@ def patch(
         canvas_cfg = draft.get("canvas_config", {}) or {}
         canvas_w = int(canvas_cfg.get("width", 2160))
         canvas_h = int(canvas_cfg.get("height", 3840))
+
+        # CE-02/CE-03: overlay/dual의 세로위치 슬롯 → transform.y 매핑 + zone 가드.
+        # split은 자체적으로 자막과 안 겹치게 main을 밀어내므로 가드/슬롯 비대상(None 유지).
+        resolved_pos_y = None
+        resolved_h_ratio = overlay_h_ratio  # None이면 style_clip_and_uniform이 ratio로 폴백
+        if style == "overlay":
+            # position_y 미지정 시 top(=0.55, 기존 동작) 폴백.
+            base_pos_y = overlay_position_y(position_y) if position_y else 0.55
+            eff_ratio = resolved_h_ratio if resolved_h_ratio is not None else (
+                ratio if ratio is not None else 0.55
+            )
+            half_h = _overlay_render_half_height_norm(
+                "overlay", eff_ratio, canvas_w, canvas_h, img_w, img_h,
+            )
+            resolved_pos_y = _guard_overlay_zone("overlay", base_pos_y, half_h, scene_label)
+
         clip, uniform = style_clip_and_uniform(
             style, opacity, ratio, side=side, img_aspect=img_aspect,
             canvas_w=canvas_w, canvas_h=canvas_h,
             material_w=img_w, material_h=img_h,
+            overlay_pos_y=resolved_pos_y,
+            overlay_h_ratio=resolved_h_ratio,
         )
         seg["clip"] = clip
         seg["uniform_scale"] = uniform
@@ -679,7 +943,37 @@ def patch(
         opacity = float(item.get("opacity", 1.0))
         ratio = float(item.get("ratio", 0.55))
 
-        start_us, duration_us = get_scene_timerange(draft, scene_idx)
+        # CE-01/CE-02 신규 plan 필드 (전부 optional, default가 기존 동작 보존):
+        #   start_offset_sec : overlay 등장 시점(씬 시작 기준 초). default 0.0.
+        #   display_dur_sec  : overlay 표시 길이(초). None이면 MOV=intrinsic / static=글자수.
+        #   position_y       : overlay 세로위치 슬롯(top/center/lower). None→top.
+        #   overlay_h_ratio  : overlay 가로 점유 비율. 미지정 시 ratio 사용(하위호환).
+        start_offset_sec = float(item.get("start_offset_sec", 0.0) or 0.0)
+        _disp = item.get("display_dur_sec", None)
+        display_dur_us = int(float(_disp) * SEC) if _disp not in (None, "") else None
+        position_y = item.get("position_y")  # 슬롯 문자열 또는 None
+        overlay_h_ratio = item.get("overlay_h_ratio")  # 신규 명칭 우선
+        overlay_h_ratio = float(overlay_h_ratio) if overlay_h_ratio not in (None, "") else None
+        # CE-04 (opt-in): item 또는 plan 최상위 auto_crop_margins=true 시 정적 overlay 크롭.
+        auto_crop = bool(item.get("auto_crop_margins", plan.get("auto_crop_margins", False)))
+
+        scene_start_us, scene_dur_us = get_scene_timerange(draft, scene_idx)
+
+        # CE-01: start_offset 적용. 씬 경계를 넘으면 0으로 클램프(emphasis L780-784 패턴).
+        offset_us = int(max(0.0, start_offset_sec) * SEC)
+        if offset_us >= scene_dur_us:
+            import sys as _sys
+            print(
+                f"[CE-01 warn] scene {scene_idx} start_offset_sec={start_offset_sec}s가 "
+                f"씬 길이({scene_dur_us/SEC:.2f}s) 초과 → offset 0으로 클램프",
+                file=_sys.stderr,
+            )
+            offset_us = 0
+        start_us = scene_start_us + offset_us
+        # duration_us = 씬 잔여 길이(offset 이후). _make_broll_segment가 display_dur로 추가 clamp.
+        duration_us = scene_dur_us - offset_us
+
+        scene_label = f"scene {scene_idx}"
 
         if style == "dual":
             # 2개 이미지. item.images = [{path, width, height}, ...] 형식
@@ -693,12 +987,16 @@ def patch(
                     img_path_s, int(img["width"]), int(img["height"]),
                     start_us, duration_us, "dual", opacity, ratio,
                     base_render + render_counter, side=side,
+                    position_y=position_y, overlay_h_ratio=overlay_h_ratio,
+                    text_for_dur=item.get("text"), display_dur_us=display_dur_us,
+                    scene_label=scene_label,
                 )
                 overlay_track["segments"].append(seg)
                 render_counter += 1
             added.append({
                 "scene_idx": scene_idx, "style": "dual",
                 "start_us": start_us, "duration_us": duration_us,
+                "start_offset_sec": start_offset_sec,
                 "image_count": 2, "main_shift_y": 0.0,
             })
         else:
@@ -707,6 +1005,9 @@ def patch(
                 img_path_s, int(item["image_width"]), int(item["image_height"]),
                 start_us, duration_us, style, opacity, ratio,
                 base_render + render_counter,
+                position_y=position_y, overlay_h_ratio=overlay_h_ratio,
+                text_for_dur=item.get("text"), display_dur_us=display_dur_us,
+                scene_label=scene_label, auto_crop=auto_crop,
             )
             overlay_track["segments"].append(seg)
             render_counter += 1
@@ -756,7 +1057,8 @@ def patch(
             "color": title_cfg.get("color", "#FFFFFF"),
             "accent_color": title_cfg.get("accent_color", "#B366FF"),
             "stroke_width": float(title_cfg.get("stroke_width", 0.06)),
-            "font_name": title_cfg.get("font_name", "Pretendard Black"),  # 2026-06-04: 미설치 "아네모네" → 등록된 "Pretendard Black" (System 폴백 방지)
+            # 2026-06-04: 미설치 "아네모네" → 등록된 "Pretendard Black" (System 폴백 방지)
+            "font_name": title_cfg.get("font_name", "Pretendard Black"),
             "font_path": title_cfg.get("font_path"),
         }
         emphases.insert(0, title_emp)

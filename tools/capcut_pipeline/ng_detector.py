@@ -29,9 +29,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
+import os
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):

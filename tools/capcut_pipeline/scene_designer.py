@@ -140,13 +140,118 @@ def _validate_motion_template(template_stem: str) -> tuple[bool, str | None]:
     return (True, None)
 
 
+def _check_sample_reviewed(broll: dict) -> tuple[bool, str | None]:
+    """VQ-03: motion broll의 sample_reviewed strict 게이트.
+
+    통과 조건:
+      - broll.sample_reviewed == True
+      - sample_reviewed_notes 에 early/mid/end 3키가 모두 존재 + 각자 비공백
+      - 3개 노트가 서로 다름(형식적 복붙 방지)
+
+    sample_reviewed_notes 는 dict({early,mid,end}) 또는 문자열(early=.../mid=.../end=...)
+    둘 다 허용해 하위호환. 문자열이면 키 토큰을 파싱.
+
+    Returns (ok, error_message). ok=True면 통과.
+    """
+    if not broll.get("sample_reviewed"):
+        return (
+            False,
+            "broll.motion=true인데 sample_reviewed!=true — frame_thumbs PNG 3장(early/mid/end)을 "
+            "Read 도구로 직접 확인 후 'sample_reviewed: true' + 'sample_reviewed_notes' 작성 필요.",
+        )
+    raw = broll.get("sample_reviewed_notes")
+    notes: dict[str, str] = {}
+    if isinstance(raw, dict):
+        for k in ("early", "mid", "end"):
+            notes[k] = str(raw.get(k, "") or "").strip()
+    elif isinstance(raw, str):
+        # "early=..., mid=..., end=..." 형태에서 각 키 구간 추출(하위호환).
+        for k in ("early", "mid", "end"):
+            m = re.search(rf"{k}\s*[=:]\s*(.+?)(?=(?:,\s*)?(?:early|mid|end)\s*[=:]|$)", raw, re.S | re.I)
+            notes[k] = (m.group(1).strip() if m else "")
+    else:
+        return (
+            False,
+            "sample_reviewed_notes 누락 — early/mid/end 각 프레임 관찰 노트가 필요합니다 "
+            "(dict {early,mid,end} 또는 'early=..., mid=..., end=...' 문자열).",
+        )
+    missing = [k for k in ("early", "mid", "end") if not notes.get(k)]
+    if missing:
+        return (
+            False,
+            f"sample_reviewed_notes에 {'/'.join(missing)} 키 누락/공백 — "
+            "early/mid/end 3프레임 모두 관찰 노트를 적어야 함.",
+        )
+    if len({notes["early"], notes["mid"], notes["end"]}) < 3:
+        return (
+            False,
+            "sample_reviewed_notes의 early/mid/end가 서로 동일(복붙 의심) — "
+            "각 프레임의 실제 차이를 적어라.",
+        )
+    return (True, None)
+
+
+# TL-03: device_mockup image_path 가 실사 사진(=UI 스크린샷 아님)일 때 reject 휴리스틱.
+# 파일명/경로에 흔한 실사 사진 시그니처. UI 스크린샷(screenshot/screen/ui/capture 등)은 허용.
+_REAL_PHOTO_HINTS = re.compile(
+    r"(?:^|[^a-z])(photo|img_\d|dsc_?\d|dscf|portrait|selfie|landscape|"
+    r"unsplash|pexels|kinfolk|desk|coffee|nature|sunlight|person|face|people)"
+    r"(?:[^a-z]|$)",
+    re.I,
+)
+
+
+def _validate_device_mockup(motion_params: dict) -> tuple[bool, str | None]:
+    """TL-03: device_mockup_9x16 motion_params 검증.
+
+    - image_path(file:// 또는 절대경로) 가 실제 파일로 존재해야 함(없으면 reject →
+      LLM이 graphic_insight/text_only로 강등하도록 유도).
+    - 파일명/경로 휴리스틱으로 실사 사진이면 reject('실사 사진 전면 금지' 정책 일관).
+      (정확한 콘텐츠 판별은 LLM 몫 — 여기선 명백한 사진 시그니처만 차단.)
+
+    Returns (ok, error_message).
+    """
+    raw = motion_params.get("image_path") or motion_params.get("image") or ""
+    raw = str(raw).strip()
+    if not raw:
+        return (
+            False,
+            "device_mockup 인데 motion_params.image_path 누락 — 실제 UI 스크린샷의 "
+            "file:// 절대경로가 필요합니다. 캡처가 없으면 graphic_insight 또는 text_only로 강등하세요.",
+        )
+    # file:// 스킴 정리
+    path_str = raw
+    if path_str.lower().startswith("file://"):
+        path_str = re.sub(r"^file://+", "", path_str)
+    p = Path(path_str)
+    if not p.exists():
+        return (
+            False,
+            f"device_mockup image_path 파일 없음: {raw} — 실제 스크린샷을 준비하거나 "
+            "graphic_insight/text_only로 강등하세요.",
+        )
+    if _REAL_PHOTO_HINTS.search(p.name):
+        return (
+            False,
+            f"device_mockup image_path '{p.name}' 가 실사 사진으로 의심됨 — UI 스크린샷만 허용 "
+            "(실사 사진 전면 금지 정책). 사진이면 text_only/graphic_insight로 바꾸세요.",
+        )
+    return (True, None)
+
+
 def _render_motion_mov(
     motion_template: str,
     motion_params: dict,
     project_name: str,
     scene_idx: int,
+    transparent: bool = True,
+    card_opacity: float = 0.62,
 ) -> tuple[str, int, int]:
     """render_motion.py subprocess 호출 후 (mov_path, width, height) 반환.
+
+    transparent=True (기본): 카드 배경을 반투명(card_opacity)으로 렌더해 메인 영상이
+    카드 뒤로 비치게 함. 검정 박스가 화면을 가리는 문제 회피 (2026-05-29).
+    plan의 broll.transparent / broll.card_opacity 로 override 가능.
 
     Raises:
       FileNotFoundError: 템플릿 파일 또는 render_motion.py 없음.
@@ -208,6 +313,8 @@ def _render_motion_mov(
         "--height", str(h),
         "--fps", "30",
     ]
+    if transparent:
+        cmd += ["--transparent", "--card-opacity", str(card_opacity)]
     subprocess.run(cmd, check=True)
     mov_path = str(out_base.with_suffix(".mov").resolve())
     return mov_path, w, h
@@ -275,6 +382,53 @@ CAPCUT_STYLES = {
 #   2. 안티패턴 0개 (아래 7개 중 어디에도 해당하지 않음)
 
 DECISION_TREE = """
+## ⛔⛔ 반-클리셰 원칙 (2026-06-04 — 최우선 게이트, 자동 reject)
+
+사용자 컴플레인: "맨날 똑같은 뻔한 b-roll, 구도도 적절치 않다." → 아래는
+`broll_reviewer.py`가 **SDK 없이도 결정론적으로 강제**한다. 위반 시 ingest 차단.
+
+1. **글자 카드 = 자막 중복 = 뻔함**: `text_hero_aurora` / `text_hero_sparkles`처럼
+   "검은 카드 위에 멋부린 글자"만 있는 overlay는 화면 emphasis 자막과 정보량이
+   똑같다. **기본은 `decision: text_only` + emphasis**. 꼭 써야 하면 broll에
+   `"justification": "다중 색 그라데이션/파티클이 메시지에 필수인 구체적 이유"`를
+   명시하고 **영상당 최대 1개**. (justification 없으면 자동 reject)
+2. **같은 type/template 2회 반복 금지**: 한 영상에서 동일 motion_template 또는 동일
+   6-type을 2번 쓰면 reject. 시나리오마다 다른 것으로 변별.
+3. **검은 카드만 금지 (변별 강제)**: overlay가 2개 이상이면 그 중 **최소 1개는
+   실제 시각 정보**여야 함 — `ui_evidence`(claude_code/terminal/notion/finder/
+   slack/discord/kakaotalk/instagram 등 진짜 UI) 또는 데이터 차트(`line_chart`/
+   `bar_chart`/`metric_ring`/`avatar_group`). 전부 글자/체크박스 카드면 reject.
+4. **주제 적합 — 기술/AI/툴/빌딩 영상은 `ui_evidence` 1순위**: "AI로 만든다",
+   "자동화", "서비스", "코드", "터미널" 맥락이면 추상 글자 카드 대신 **실제 작업
+   화면**(claude_code/terminal/notion)을 우선 선택. 메시지와 1:1로 강력함.
+5. **영상 간 반복 금지 (맨날 똑같은)**: 직전 영상들에서 쓴 template 집합과 이번
+   영상이 완전히 겹치면 reject. 최소 1개는 최근에 안 쓴 것으로.
+
+## 🎯 구도 규칙 (9:16 토킹헤드 — 얼굴/자막 침범 금지)
+
+- overlay는 **상단(얼굴 위)** 에 배치 — 화면 정중앙은 인물 얼굴이라 카드로 덮으면 안 됨.
+- 하단은 자막(y≈-0.234) + emphasis zone → overlay가 내려오면 안 됨.
+- 16:9 카드를 9:16에 얹을 땐 ratio·세로위치를 상단으로 (overlay_patcher 기본 상단,
+  중립 카드는 영상과 같은 비율이 이상적이나 현재 9x16 variant는 forbidden 다수).
+- emphasis는 overlay 있는 씬이면 `position: lower`, 없는 씬이면 `position: top`.
+
+### 🆕 overlay 배치/타이밍 필드 (CE-01/CE-02, optional — 미지정 시 현재 동작 유지)
+
+overlay/split/dual broll에 아래 필드를 넣으면 구도·타이밍을 씬별로 다르게 줄 수 있다
+(전부 선택. 없으면 default = 기존 동작 = 씬 시작·전체 길이·상단 0.55).
+
+| 필드 | 타입 | default | 의미 |
+|---|---|---|---|
+| `start_offset_sec` | float | `0.0` | overlay 등장 시점(씬 시작 기준 초). 긴 씬에서 강조 비트에 맞춰 늦게 등장 가능. |
+| `display_dur_sec` | float | (자동) | overlay 표시 길이. 미지정 시 motion=intrinsic MOV 길이, static PNG=글자수 기반. 항상 씬 잔여길이로 clamp. |
+| `position_y` | 슬롯명 | `"top"` | 세로 위치 **슬롯**: `"top"`/`"center"`/`"lower"` 셋 중 하나(자유 float 금지). `center`는 얼굴 위라 비권장. |
+| `overlay_h_ratio` | float | `0.55` | 가로 점유 비율(기존 `ratio` 의미). 기존 `ratio`도 읽되 `overlay_h_ratio` 우선. |
+
+- 긴 씬은 overlay를 짧게(display_dur_sec) + 늦게(start_offset_sec) 등장시키고, 씬 중간의
+  세부 강조는 emphasis(start_offset_sec)로 분리하라 — overlay를 씬 끝까지 박제하지 말 것.
+- position_y는 **슬롯명만**(top/center/lower). 실제 transform.y 수치 매핑·얼굴/자막
+  세이프존 가드는 overlay_patcher가 소유한다(여기서는 슬롯 문자열만 적는다).
+
 ## B-roll Decision Tree (NEW 6-type system — 실사 사진 금지, split_stack 제거)
 
 ⛔ **실사 사진 전면 금지** (2026-04-21 개편):
@@ -335,6 +489,14 @@ A7 NG 의심 테이크 (반복, 말더듬)
 허용되는 UI: Instagram / macOS Finder / Terminal / VSCode / Claude Code / YouTube / Gmail / 노션 / 토스 / 카톡 (실제 대화) / Twitter-X / Discord 등
 
 금지: 가상 SaaS 대시보드, 가짜 회사 UI, 모방 제품 UI
+
+**ui_evidence vs device_mockup 분기 (TL-03, 2026-06-04)**: 실제 캡처 파일(스크린샷)이
+있으면 `motion_template: device_mockup_9x16`(실 스크린샷을 폰/브라우저 프레임에 삽입),
+재현/합성 UI면 기존 `ui_evidence`(손으로 그린 fake-UI). device_mockup은 motion이며
+`motion_params.image_path`에 **실제 스크린샷의 file:// 절대경로**가 있어야 한다.
+⛔ 실사 사진(책상/인물/풍경 JPG)은 device_mockup에도 금지 — UI 스크린샷만 허용.
+image_path 파일이 없으면 ingest가 reject하므로, 캡처가 없으면 `graphic_insight` 또는
+`text_only`로 강등하라.
 
 ### Step 5 — graphic_insight 판정
 
@@ -650,21 +812,124 @@ def _append_motion_catalog_section(lines: list[str]) -> None:
     lines.append('    "type": "...",                              // 6-type 중 하나')
     lines.append('    "motion": true,')
     lines.append('    "motion_template": "<approved_stem_only>",  // forbidden 목록 사용 금지')
-    lines.append('    "motion_params": { ... },                    // params_schema 키만')
+    lines.append('    "motion_params": { ... },                    // params_schema 키만 (+선택 "accent": "#0070F3")')
     lines.append('    "sample_reviewed": true,                     // ⭐ thumbs 3장 Read 완료 후 true')
-    lines.append('    "sample_reviewed_notes": "early=..., mid=..., chose because ..."')
+    lines.append('    "sample_reviewed_notes": {                    // ⭐ early/mid/end 3키 필수 (각자 비공백·서로 다른 내용)')
+    lines.append('      "early": "...", "mid": "...", "end": "..."')
+    lines.append('    },')
+    lines.append('    "start_offset_sec": 0.0,                     // 선택 — 등장 시점(긴 씬 강조용)')
+    lines.append('    "display_dur_sec": null,                     // 선택 — 표시 길이(미지정=MOV 길이)')
+    lines.append('    "position_y": "top",                         // 선택 — top/center/lower 슬롯')
+    lines.append('    "overlay_h_ratio": 0.55                      // 선택 — 가로 점유 비율')
     lines.append("  }")
     lines.append("}")
     lines.append("```")
     lines.append("")
-    lines.append("`sample_reviewed: false` 또는 누락 → ingest가 warning 출력 (현재 strict-mode 미설정).")
+    lines.append(
+        "`sample_reviewed: true` + `sample_reviewed_notes`(early/mid/end 3키, 비공백·서로 다름)는 "
+        "motion broll의 **필수 게이트**다. 누락/공백/형식적 중복 시 ingest가 reject한다 "
+        "(`OMC_BROLL_STRICT=0`로 일시 warning 강등 가능 — 점진 도입용)."
+    )
+    lines.append("")
+    lines.append(
+        "`accent`(선택): 영상 톤에 맞는 단일 accent 색 hex(예 `#0070F3` 테크 / `#2AF598` 성장 / "
+        "`#FFB020` 경고 / 기본 `#B366FF`). motion_params에 넣으면 렌더에 그대로 전달된다. "
+        "영상당 1색 고정(다색 혼용 금지)."
+    )
 
 
 # ===== Ingest (검증 + broll_plan.json 출력) =====
 
+def _strict_mode() -> bool:
+    """OMC_BROLL_STRICT env 토글. 기본 on. '0'/'false'/'off'/'no'면 off(점진 도입).
+
+    strict off 시 일부 게이트(rubber-stamp, sample_reviewed)는 reject 대신 warning으로
+    강등돼 워크플로 마찰 없이 단계적으로 켤 수 있다.
+    """
+    val = os.environ.get("OMC_BROLL_STRICT", "1").strip().lower()
+    return val not in ("0", "false", "off", "no", "")
+
+
+# SI-04: review.mode 가 이 목록이면 별도 페르소나 검증 없이 통과(독립 평가자 경로).
+#   - "sdk": broll_reviewer가 Anthropic SDK로 3-persona를 별도 호출(가장 강한 독립성)
+#   - "orchestrator_personas": 오케스트레이터가 3 Task agent를 태워 머지한 결과
+# 그 외 in-session/self-review 계열 mode는 rubber-stamp 방지 검사를 통과해야 함.
+_REVIEW_TRUSTED_MODES = {"sdk", "orchestrator_personas"}
+# pass=false 이전에 명백한 placeholder(독립 평가 없음)로 취급할 mode.
+_REVIEW_PLACEHOLDER_MODES = {"fallback_prompts", "pre_filter", "awaiting_persona_review"}
+
+
+def _persona_overall(p: dict) -> Any:
+    """persona 항목에서 overall 점수 추출. 최상위 또는 nested scores.overall 모두 지원."""
+    if not isinstance(p, dict):
+        return None
+    if "overall" in p:
+        return p.get("overall")
+    scores = p.get("scores")
+    if isinstance(scores, dict):
+        return scores.get("overall")
+    return None
+
+
+def _persona_notes(p: dict) -> str:
+    """persona 항목의 비공백 notes/comments 텍스트를 정규화 결합. 둘 다 지원."""
+    if not isinstance(p, dict):
+        return ""
+    raw = p.get("notes")
+    if raw is None:
+        raw = p.get("comments")
+    if isinstance(raw, list):
+        parts = [str(x).strip() for x in raw if str(x).strip()]
+        return " ".join(parts).strip()
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
+def _check_rubber_stamp(review: dict) -> tuple[bool, str | None]:
+    """in-session self-review의 rubber-stamp(자기-통과) 방지 검사.
+
+    통과 조건(CONTRACT §3): persona_scores에 ≥3 페르소나, 각자
+      - overall(숫자) 존재
+      - notes/comments 비공백
+      - notes 내용이 서로 다름(distinct) — 빈 persona_scores나 복붙 self-pass 차단.
+
+    Returns (ok, error_message). error_message가 None이면 통과.
+    """
+    personas = review.get("persona_scores")
+    if not isinstance(personas, dict) or len(personas) < 3:
+        return (
+            False,
+            "persona_scores에 3개 이상의 페르소나 평가가 없음 — 실제 3-persona 평가를 수행하라 "
+            "(broll_reviewer.py SDK 또는 오케스트레이터가 3 Task agent로 독립 평가 후 머지).",
+        )
+    notes_seen: list[str] = []
+    for key, p in personas.items():
+        overall = _persona_overall(p)
+        if not isinstance(overall, (int, float)):
+            return (False, f"persona '{key}' 의 overall 점수(숫자)가 없음 — 형식적 self-pass 의심.")
+        note = _persona_notes(p)
+        if not note:
+            return (False, f"persona '{key}' 의 notes/comments가 비어 있음 — 실제 평가 근거를 적어라.")
+        notes_seen.append(note)
+    # distinct 검사 — 모든 notes가 동일하면 복붙 rubber-stamp.
+    if len(set(notes_seen)) < len(notes_seen):
+        return (
+            False,
+            "persona들의 notes/comments가 서로 동일(복붙) — 각 페르소나가 다른 관점으로 평가해야 함.",
+        )
+    return (True, None)
+
+
 def _check_broll_review_gate(plan_dir: Path) -> None:
-    """3-persona review 게이트: plan 디렉토리에 broll_review.json이 존재하고
-    pass:true 이어야 ingest 통과. 없거나 REJECT면 exit 2.
+    """3-persona review 게이트 (SI-04 강화, 2026-06-04).
+
+    통과 조건: broll_review.json 존재 + pass:true + mode 검증.
+      - mode ∈ {sdk, orchestrator_personas}: 독립 평가자 경로 → 그대로 통과.
+      - mode ∈ {fallback_prompts, pre_filter, awaiting_persona_review}: placeholder → reject.
+      - 그 외(in-session/self-review 계열): rubber-stamp 방지 검사 통과해야 함
+        (persona_scores ≥3, 각자 overall 숫자 + 비공백·distinct notes).
+    OMC_BROLL_STRICT=0 이면 rubber-stamp 위반을 reject 대신 warning으로 강등(점진 도입).
 
     Skip: `--skip-review` 플래그로 우회 가능 (ingest() 호출 전에 걸러짐).
     """
@@ -698,6 +963,90 @@ def _check_broll_review_gate(plan_dir: Path) -> None:
             for it in issues[:10]:
                 print(f"          - {it}", file=sys.stderr)
         sys.exit(2)
+
+    # --- SI-04: mode 검증 (pass:true 라도 평가 정체성 확인) ---
+    mode = str(review.get("mode", "")).strip()
+    if mode in _REVIEW_TRUSTED_MODES:
+        return  # 독립 평가자 경로 — 그대로 통과
+    if mode in _REVIEW_PLACEHOLDER_MODES:
+        print(
+            f"[ERROR] broll_review.json mode='{mode}' 는 placeholder입니다 (독립 평가 미수행).\n"
+            f"        broll_reviewer.py를 SDK로 돌리거나, 오케스트레이터가 3 Task agent로\n"
+            f"        독립 평가 후 mode를 'orchestrator_personas'로 머지하세요.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    # 그 외 in-session/self-review 계열: rubber-stamp 방지 검사
+    ok, err = _check_rubber_stamp(review)
+    if not ok:
+        if _strict_mode():
+            print(
+                f"[ERROR] broll_review.json mode='{mode or '(미지정)'}' self-review 게이트 실패:\n"
+                f"        {err}",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        print(
+            f"  [warn] broll_review.json mode='{mode or '(미지정)'}' self-review 약함: {err} "
+            "(OMC_BROLL_STRICT=1로 강제하면 reject)",
+            file=sys.stderr,
+        )
+
+
+# CE-01/CE-02: overlay 배치/타이밍 필드 슬롯 화이트리스트(자유 float 금지).
+_POSITION_Y_SLOTS = ("top", "center", "lower")
+
+
+def _overlay_placement_fields(broll: dict, *, static_text: str = "") -> dict[str, Any]:
+    """plan broll 에서 CE-01/CE-02 optional 필드를 추출해 broll_plan item 용 dict 반환.
+
+    전부 optional. 미지정 시 default가 현재 동작 보존:
+      - start_offset_sec: 0.0 (씬 시작)
+      - display_dur_sec: None (overlay_patcher가 MOV intrinsic/씬 길이로 결정).
+        단 static PNG는 텍스트 글자수 기반 자동 산정(len/13+0.7, 2.5~7s clamp).
+      - position_y: "top" (현재 상단 고정과 동일)
+      - overlay_h_ratio: ratio(기존 0.55), overlay_h_ratio 우선
+    """
+    out: dict[str, Any] = {}
+
+    # start_offset_sec — 음수는 0으로 클램프(씬 경계 이전 등장 방지). 최종 경계
+    # 클램프는 overlay_patcher가 씬 길이를 알고 수행.
+    try:
+        offset = float(broll.get("start_offset_sec", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        offset = 0.0
+    out["start_offset_sec"] = max(0.0, offset)
+
+    # display_dur_sec — 명시값 우선. 미지정 시 static text는 글자수 기반 자동 산정,
+    # 그 외(motion 등)는 None 으로 두고 overlay_patcher가 intrinsic 길이 사용.
+    dd = broll.get("display_dur_sec", None)
+    if dd is None and static_text:
+        n = len(static_text.strip())
+        if n:
+            auto = n / 13.0 + 0.7
+            dd = max(2.5, min(7.0, auto))
+    if dd is not None:
+        try:
+            out["display_dur_sec"] = float(dd)
+        except (TypeError, ValueError):
+            out["display_dur_sec"] = None
+    else:
+        out["display_dur_sec"] = None
+
+    # position_y — 슬롯명만 허용. 잘못된 값은 default "top".
+    pos = str(broll.get("position_y", "top") or "top").strip().lower()
+    out["position_y"] = pos if pos in _POSITION_Y_SLOTS else "top"
+
+    # overlay_h_ratio — overlay_h_ratio 우선, 없으면 기존 ratio, 둘 다 없으면 0.55.
+    raw_ratio = broll.get("overlay_h_ratio", broll.get("ratio", 0.55))
+    try:
+        out["overlay_h_ratio"] = float(raw_ratio)
+    except (TypeError, ValueError):
+        out["overlay_h_ratio"] = 0.55
+    # 하위호환: overlay_patcher가 아직 item.ratio 를 읽으므로 ratio 도 동일값으로 emit.
+    out["ratio"] = out["overlay_h_ratio"]
+
+    return out
 
 
 def ingest(
@@ -790,16 +1139,26 @@ def ingest(
             # --- Motion B-roll branch (render MOV immediately) ---
             if motion:
                 motion_template = broll.get("motion_template")
-                motion_params = broll.get("motion_params", {}) or {}
-                # ⭐ sample_reviewed 게이트 (NEW 2026-05-13)
-                # LLM이 frame_thumbs PNG 3장을 Read한 후 명시적으로 true를 적었는지
-                # 확인. 누락 시 경고 — 시각 검증 없이 cheat sheet 텍스트만으로
-                # 고른 정황이라 plan 품질이 들쭉날쭉해진 케이스 방지.
-                if not broll.get("sample_reviewed"):
+                motion_params = dict(broll.get("motion_params", {}) or {})
+                # DT-01: accent(영상당 1색) 전달 경로. broll.accent 가 있고 motion_params에
+                # 미지정이면 주입해 render_motion.py(--params)로 그대로 전달. shared.css
+                # 토큰 정의는 CSS 에이전트 담당. 미지정 시 템플릿 default 사용(하위호환).
+                _accent = broll.get("accent")
+                if _accent and "accent" not in motion_params:
+                    motion_params["accent"] = _accent
+                # ⭐ sample_reviewed strict 게이트 (VQ-03, 2026-06-04로 승격)
+                # LLM이 frame_thumbs PNG 3장(early/mid/end)을 Read한 후 명시적으로
+                # 검증 노트를 적었는지 머신 체크. 시각 검증 없이 cheat-sheet 텍스트만으로
+                # 고른 정황을 차단. OMC_BROLL_STRICT=0 이면 warning 으로 강등(점진 도입).
+                _sr_ok, _sr_err = _check_sample_reviewed(broll)
+                if not _sr_ok:
+                    if _strict_mode():
+                        issues.append(f"scene {idx}: {_sr_err}")
+                        continue
                     print(
-                        f"  [warn] scene {idx}: broll.motion=true인데 sample_reviewed 누락 — "
-                        f"LLM이 {motion_template}의 frame_thumbs PNG를 Read 도구로 직접 확인했는지 검증 안 됨. "
-                        "다음 plan부터 'sample_reviewed: true' + 'sample_reviewed_notes' 필드 작성 권장."
+                        f"  [warn] scene {idx}: {_sr_err} "
+                        "(OMC_BROLL_STRICT=1로 강제하면 reject)",
+                        file=sys.stderr,
                     )
                 if not motion_template:
                     issues.append(
@@ -819,6 +1178,13 @@ def ingest(
                         f"파일명 끝에 _16x9 / _9x16 / _1x1 / _4x3 / _3x4 suffix 필요."
                     )
                     continue
+                # TL-03: device_mockup 은 실제 스크린샷을 프레임에 삽입하는 archetype.
+                # motion_params.image_path 의 실제 파일 존재 + 실사 사진 reject 검증.
+                if motion_template.startswith("device_mockup"):
+                    dev_ok, dev_err = _validate_device_mockup(motion_params)
+                    if not dev_ok:
+                        issues.append(f"scene {idx}: {dev_err}")
+                        continue
                 if not tp:
                     issues.append(f"scene {idx}: motion overlay인데 broll.type 누락")
                 _check_type(idx, tp, "motion overlay")
@@ -830,6 +1196,10 @@ def ingest(
                         motion_params=motion_params,
                         project_name=project_name,
                         scene_idx=idx,
+                        # 기본 투명(반투명 카드) — 검정 박스가 영상 가리는 것 방지.
+                        # plan에서 broll.transparent:false 로 불투명, card_opacity로 농도 조절.
+                        transparent=bool(broll.get("transparent", True)),
+                        card_opacity=float(broll.get("card_opacity", 0.62)),
                     )
                 except (FileNotFoundError, ValueError) as e:
                     issues.append(f"scene {idx}: motion render setup error: {e}")
@@ -839,7 +1209,7 @@ def ingest(
                         f"scene {idx}: motion render failed (exit={e.returncode})"
                     )
                     continue
-                items.append({
+                _motion_item = {
                     "scene_idx": idx,
                     "style": "overlay",
                     "image_path": mov_path,
@@ -851,7 +1221,11 @@ def ingest(
                     "_brand_key": broll.get("brand_key"),
                     "_motion": True,
                     "_motion_template": motion_template,
-                })
+                }
+                # CE-01/CE-02: 배치/타이밍 필드 전달. motion은 static_text 미적용
+                # (display_dur 미지정 시 None → overlay_patcher가 MOV intrinsic 길이 사용).
+                _motion_item.update(_overlay_placement_fields(broll))
+                items.append(_motion_item)
                 # ⚠️ FIX 2026-05-13: 과거에는 여기서 `continue` 했는데, 그러면
                 # 아래 L939 emphasis 변환을 건너뛰어 motion 씬의 emphasis 4-5개가
                 # 매번 broll_plan.json에서 누락됨. 이제 정적 분기를 else로 막고
@@ -865,7 +1239,7 @@ def ingest(
                 if not tp:
                     issues.append(f"scene {idx}: overlay인데 broll.type 누락 (6-type 중 하나)")
                 _check_type(idx, tp, "overlay")
-                items.append({
+                _static_item = {
                     "scene_idx": idx,
                     "style": "overlay",
                     "image_path": broll.get("image_path", f"__AUTO_GENERATE__/scene_{idx:03d}.png"),
@@ -875,7 +1249,15 @@ def ingest(
                     "_src_hint": src_hint,
                     "_type": tp or "icon_hero",
                     "_brand_key": broll.get("brand_key"),
-                })
+                }
+                # CE-01/CE-02: 배치/타이밍 필드. static PNG는 display_dur 미지정 시
+                # 같은 씬 emphasis 텍스트 글자수 기반 자동 산정(없으면 None=전체 길이 유지).
+                _emp_text = ""
+                _emp = cs.get("emphasis")
+                if isinstance(_emp, dict):
+                    _emp_text = str(_emp.get("text", "") or "")
+                _static_item.update(_overlay_placement_fields(broll, static_text=_emp_text))
+                items.append(_static_item)
 
         elif decision == "split":
             broll = cs.get("broll", {})
@@ -888,7 +1270,7 @@ def ingest(
             _check_type(idx, tp, "split")
             # split은 상단 영역을 '전체 덮는' 레이아웃이라 투명도를 주면 아래
             # 메인 비디오가 비쳐 보여 이상하게 렌더됨. 기본 1.0으로 고정.
-            items.append({
+            _split_item = {
                 "scene_idx": idx,
                 "style": "split",
                 "image_path": broll.get("image_path", f"__AUTO_GENERATE__/scene_{idx:03d}.png"),
@@ -898,7 +1280,10 @@ def ingest(
                 "_src_hint": src_hint,
                 "_type": tp or "graphic_insight",
                 "_brand_key": broll.get("brand_key"),
-            })
+            }
+            # CE-01/CE-02: start_offset/display_dur 등 전달(split도 타이밍 제어 가능).
+            _split_item.update(_overlay_placement_fields(broll))
+            items.append(_split_item)
 
         elif decision == "dual":
             brolls = cs.get("brolls", [])
@@ -925,7 +1310,7 @@ def ingest(
                 src_hints.append(sh)
                 types.append(btp or "dual_icon")
                 brand_keys.append(b.get("brand_key"))
-            items.append({
+            _dual_item = {
                 "scene_idx": idx,
                 "style": "dual",
                 "images": images,
@@ -934,7 +1319,10 @@ def ingest(
                 "_type": types[0] if types else "dual_icon",
                 "_types": types,
                 "_brand_keys": brand_keys,
-            })
+            }
+            # CE-01/CE-02: 배치/타이밍 필드는 dual scene 단위. 첫 broll의 값을 사용.
+            _dual_item.update(_overlay_placement_fields(brolls[0]))
+            items.append(_dual_item)
 
         # decision == "text_only": 이미지 생성 스킵, overlay_patcher는 emphasis만 주입.
         # items에 아무 것도 append 하지 않는다 — B-roll 트랙 비영향.
@@ -956,7 +1344,9 @@ def ingest(
                     "color": emp.get("color", "#FFFFFF"),
                     "accent_color": emp.get("accent_color", "#FFD54F"),
                     "stroke_width": emp.get("stroke_width", 0.04),
-                    "font_name": emp.get("font_name", "Pretendard Black"),  # 2026-06-04: 기본 폰트 "아네모네"(userFontData 미등록) → "Pretendard Black"
+                    # 2026-06-04: 기본 폰트를 미설치 "아네모네" → 등록된 "Pretendard Black"으로.
+                    # (아네모네는 userFontData에 없어 path 미해석 → CapCut System 폴백 사고)
+                    "font_name": emp.get("font_name", "Pretendard Black"),
                 }
                 emphases.append(emphasis_entry)
 
@@ -982,6 +1372,32 @@ def ingest(
     print(f"  items: {len(items)}")
     print(f"  emphasis: {len(emphases)}")
     print(f"  title: {'yes' if title else 'no'}")
+
+    # --- 영상 간 반복 방지 ledger 기록 (2026-06-04) ---
+    # 이번 영상에서 확정된 motion_template stem을 누적 로그에 추가해
+    # broll_reviewer 의 cross-video variety 검사("맨날 똑같은") 에 사용.
+    try:
+        used_templates = sorted({
+            cs.get("broll", {}).get("motion_template")
+            for cs in claude_plan.get("scenes", [])
+            if isinstance(cs.get("broll"), dict) and cs["broll"].get("motion_template")
+        })
+        name = out_path.parent.name
+        log_path = Path(__file__).resolve().parent / ".broll_usage_log.json"
+        try:
+            log = json.loads(log_path.read_text(encoding="utf-8"))
+            if not isinstance(log, list):
+                log = []
+        except Exception:
+            log = []
+        # 같은 name 기존 항목 제거 후 append (재실행 시 중복 방지)
+        log = [e for e in log if e.get("name") != name]
+        log.append({"name": name, "templates": used_templates})
+        log = log[-30:]  # 최근 30개만 유지
+        log_path.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  [ledger] recorded {len(used_templates)} templates for variety tracking")
+    except Exception as e:
+        print(f"  [ledger] skip ({e})")
 
     # 이미지 생성이 필요한 항목 안내
     auto_gen_count = sum(1 for it in items if any(

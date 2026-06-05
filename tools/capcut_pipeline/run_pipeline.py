@@ -32,16 +32,10 @@ if hasattr(sys.stdout, "reconfigure"):
 # --- paths ---------------------------------------------------------------
 
 PROJECT_ROOT = Path(os.environ.get("CAPCUT_PROJECT_ROOT") or Path(__file__).resolve().parents[2])
-# FFmpeg/FFprobe: env override → PATH (assumes ffmpeg & ffprobe installed and resolvable)
-_FFMPEG_BIN = os.environ.get("CAPCUT_FFMPEG_BIN")
-if _FFMPEG_BIN:
-    FFBIN = Path(_FFMPEG_BIN)
-    FFMPEG = str(FFBIN / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg"))
-    FFPROBE = str(FFBIN / ("ffprobe.exe" if os.name == "nt" else "ffprobe"))
-else:
-    FFMPEG = "ffmpeg"
-    FFPROBE = "ffprobe"
-CAPCUT_ROOT = Path(os.environ.get("CAPCUT_DRAFT_ROOT") or (Path(os.environ["LOCALAPPDATA"]) / "CapCut/User Data/Projects/com.lveditor.draft"))
+FFBIN = Path(os.environ["LOCALAPPDATA"]) / "Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin"
+FFMPEG = str(FFBIN / "ffmpeg.exe")
+FFPROBE = str(FFBIN / "ffprobe.exe")
+CAPCUT_ROOT = Path(os.environ["LOCALAPPDATA"]) / "CapCut/User Data/Projects/com.lveditor.draft"
 
 
 # --- step 1: probe -------------------------------------------------------
@@ -160,12 +154,16 @@ def cut_scenes(src: Path, scenes: list[dict], scenes_dir: Path, *, accurate: boo
         out = scenes_dir / f"scene_{sc['idx']:02d}.mp4"
         if accurate:
             # -ss AFTER -i + re-encode = frame-accurate cut, no keyframe snap
+            # 4K(2160x3840) 메모리 절약: sliced-threads=1 → 한 번에 1프레임만 버퍼링
+            # (frame-threads는 N개 프레임 버퍼를 동시 점유해 4K에서 malloc 실패 유발).
+            # sync-lookahead=0 + rc-lookahead 축소로 lookahead 프레임 버퍼도 감축.
             cmd = [
                 FFMPEG, "-hide_banner", "-loglevel", "error", "-y",
                 "-i", str(src),
                 "-ss", str(sc["start"]),
                 "-t", str(sc["length"]),
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                "-x264-params", "sliced-threads=1:sync-lookahead=0:rc-lookahead=10",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k",
                 "-movflags", "+faststart",

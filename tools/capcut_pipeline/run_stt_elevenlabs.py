@@ -24,12 +24,8 @@ import requests
 
 # --- paths ---------------------------------------------------------------
 PROJECT_ROOT = Path(os.environ.get("CAPCUT_PROJECT_ROOT") or Path(__file__).resolve().parents[2])
-_FFMPEG_BIN = os.environ.get("CAPCUT_FFMPEG_BIN")
-if _FFMPEG_BIN:
-    FFBIN = Path(_FFMPEG_BIN)
-    FFMPEG = str(FFBIN / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg"))
-else:
-    FFMPEG = "ffmpeg"
+FFBIN = Path(os.environ["LOCALAPPDATA"]) / "Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin"
+FFMPEG = str(FFBIN / "ffmpeg.exe")
 
 SCRIBE_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 # Scribe hard limit is ~1GB / ~8h. We extract a compact mono m4a first.
