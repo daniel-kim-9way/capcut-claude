@@ -339,6 +339,51 @@ def patch_text_animation(
     return new_anim['id']
 
 
+def patch_video_intro_animation(
+    draft: dict,
+    *,
+    preset_name: str,
+    templates: dict,
+    scene_idx: int = 0,
+    duration_us: int | None = None,
+) -> str:
+    """메인 video 트랙의 특정 클립(기본 첫 클립)에 in-animation 주입.
+
+    텍스트가 아니라 **비디오 세그먼트**에 sticker_animation을 붙인다
+    (예: 'zoom_in' = 줌 1, PROMPTER_20260608_172322 드래프트에서 추출).
+    사용자 결정 2026-06-08: 시작 플래시/타자기 대신 첫 클립 줌1 인 효과.
+
+    Returns: 생성된 material_animation id.
+    """
+    anim_templates = templates['animations']
+    if preset_name not in anim_templates:
+        raise ValueError(
+            f"unknown animation preset '{preset_name}'. "
+            f'available: {list(anim_templates.keys())}'
+        )
+    tpl = anim_templates[preset_name]
+    dur = duration_us if duration_us is not None else tpl['default_duration_us']
+    new_anim = _make_material_animation_with_entry(tpl['animation_entry'], duration_us=dur)
+
+    # 첫 video 트랙 = 메인 영상 (broll overlay 트랙은 그 뒤). outro_animation과 동일 규칙.
+    main_segs = next(
+        (tr.get('segments', []) for tr in draft['tracks'] if tr.get('type') == 'video'),
+        [],
+    )
+    if not main_segs:
+        raise ValueError('no main video track/segments for intro animation')
+    idx = scene_idx if scene_idx >= 0 else len(main_segs) + scene_idx
+    if idx < 0 or idx >= len(main_segs):
+        raise ValueError(f'scene_idx {scene_idx} out of range (segs={len(main_segs)})')
+
+    _ensure_material_bucket(draft, 'material_animations').append(new_anim)
+    seg = main_segs[idx]
+    refs = seg.setdefault('extra_material_refs', [])
+    if new_anim['id'] not in refs:
+        refs.append(new_anim['id'])
+    return new_anim['id']
+
+
 def find_text_seg_id_at(draft: dict, t_us: int, tolerance_us: int = 200_000) -> str | None:
     """주어진 타임스탬프(us) 근처에서 시작하는 text segment id 반환.
 
@@ -814,11 +859,84 @@ fx_plan.json 스키마:
 '''
 
 
+def _ensure_segment_speed_material(draft: dict, seg: dict, value: float) -> None:
+    """세그먼트가 참조하는 speed 머티리얼을 value로 설정. 없으면 새로 만들어 ref에 추가.
+    (전역 배속용 — 사용자 결정 2026-06-05: CapCut '전체 선택 → 1.15배속'을 재현)"""
+    speeds = _ensure_material_bucket(draft, 'speeds')
+    speed_ids = {m['id']: m for m in speeds if isinstance(m, dict) and 'id' in m}
+    refs = seg.setdefault('extra_material_refs', [])
+    for rid in refs:
+        if rid in speed_ids:
+            speed_ids[rid]['speed'] = value
+            speed_ids[rid]['mode'] = speed_ids[rid].get('mode', 0)
+            return
+    # 참조하는 speed 머티리얼이 없으면 새로 생성(sfx/bgm 등 fx_patcher가 추가한 세그먼트)
+    new_speed = _make_speed_material()
+    new_speed['speed'] = value
+    speeds.append(new_speed)
+    refs.append(new_speed['id'])
+
+
+def apply_global_speed(draft: dict, speed: float) -> dict:
+    """⭐ 전역 배속 (사용자 결정 2026-06-05): CapCut에서 '전체 선택 → N배속'한 것과 동일.
+
+    모든 트랙의 모든 세그먼트를 균일하게 1/speed로 압축(start·duration)하고,
+    video/audio 세그먼트는 speed 머티리얼까지 speed로 설정한다. 이렇게 하면 영상·자막·
+    B-roll·emphasis·SFX·BGM이 전부 같은 비율로 압축되어 싱크가 유지된다.
+    (오디오는 피치가 약간 올라가지만 사용자가 수동 select-all 배속으로 수용한 동작.)
+
+    ⚠️ 반드시 다른 모든 FX 패치 이후 **마지막**에 호출(이미 추가된 sfx/bgm/filter/effect도 압축).
+    """
+    if not speed or abs(speed - 1.0) < 1e-6:
+        return {'applied': False, 'speed': 1.0}
+    S = float(speed)
+    n_seg = 0
+    n_media = 0
+    for tr in draft.get('tracks', []):
+        ttype = tr.get('type')
+        for seg in tr.get('segments', []):
+            ttr = seg.get('target_timerange')
+            if isinstance(ttr, dict):
+                ttr['start'] = int(round(ttr.get('start', 0) / S))
+                ttr['duration'] = int(round(ttr.get('duration', 0) / S))
+                n_seg += 1
+            if ttype in ('video', 'audio'):
+                new_speed = round(float(seg.get('speed', 1.0)) * S, 6)
+                seg['speed'] = new_speed
+                _ensure_segment_speed_material(draft, seg, new_speed)
+                n_media += 1
+    if isinstance(draft.get('duration'), (int, float)):
+        draft['duration'] = int(round(draft['duration'] / S))
+    print(f'[ok] global_speed x{S} → {n_seg} segments compressed, {n_media} media sped, '
+          f'duration={draft.get("duration",0)/1e6:.2f}s')
+    return {'applied': True, 'speed': S, 'segments': n_seg, 'media': n_media}
+
+
 def apply_plan(draft: dict, plan: dict, templates: dict) -> dict:
     """plan 적용 → 적용 결과 로그 dict 반환."""
-    log = {'title_animation': None, 'outro_animation': None, 'sfx': [], 'scene_effects': [], 'bgm': None, 'filter': None}
+    log = {'intro_video_animation': None, 'title_animation': None, 'outro_animation': None,
+           'sfx': [], 'scene_effects': [], 'bgm': None, 'filter': None}
 
-    # title_animation
+    # intro_video_animation — 첫 클립 in-animation (예: zoom_in=줌1). 사용자 결정 2026-06-08:
+    # 시작 플래시/타이틀 타자기 대신 영상 클립 자체 줌인. (title/outro_animation은 이제 선택)
+    if plan.get('intro_video_animation'):
+        spec = plan['intro_video_animation']
+        try:
+            anim_id = patch_video_intro_animation(
+                draft,
+                preset_name=spec['preset'],
+                templates=templates,
+                scene_idx=spec.get('scene_idx', 0),
+                duration_us=spec.get('duration_us'),
+            )
+            log['intro_video_animation'] = {'anim_id': anim_id, 'preset': spec['preset'],
+                                            'scene_idx': spec.get('scene_idx', 0)}
+            print(f"[ok] intro_video_animation({spec['preset']}) → main clip "
+                  f"scene {spec.get('scene_idx', 0)}")
+        except ValueError as e:
+            print(f'[warn] intro_video_animation: {e}', file=sys.stderr)
+
+    # title_animation (선택 — 2026-06-08부터 typewriter 기본 제거)
     if plan.get('title_animation'):
         spec = plan['title_animation']
         scene_idx = spec.get('scene_idx', 0)
@@ -987,6 +1105,11 @@ def apply_plan(draft: dict, plan: dict, templates: dict) -> dict:
         }
         print(f'[ok] filter {spec["preset"]} intensity={spec.get("intensity","default")} dur={effective_dur:.2f}s')
 
+    # ⭐ 전역 배속 (반드시 마지막 — 위에서 추가한 sfx/bgm/filter/effect까지 모두 압축).
+    # plan.speed 미지정 시 1.2 기본(사용자 결정 2026-06-08, 기존 1.15에서 상향). 1.0이면 no-op.
+    speed = plan.get('speed', 1.2)
+    log['speed'] = apply_global_speed(draft, speed)
+
     return log
 
 
@@ -1046,9 +1169,11 @@ def _restore_fx_clean(draft_path: Path) -> None:
 # Fallback spec used when templates/_registry.json is absent (pre-registry
 # extract_templates runs, or fresh checkout without extraction step).
 # Must stay in sync with extract_templates.REQUIRED_FX_KEYS_SPEC.
+# 2026-06-08 사용자 결정: 타자기(title/outro_animation) 기본 제거 → 선택. 대신 첫 클립
+# intro_video_animation(줌1)을 필수 오프닝 효과로. title/outro_animation은 plan에 있으면
+# 적용되지만 완결성 게이트에선 더 이상 요구하지 않음.
 _FALLBACK_REQUIRED_FX_KEYS = {
-    'title_animation': {'type': 'dict'},
-    'outro_animation': {'type': 'dict'},
+    'intro_video_animation': {'type': 'dict'},
     'sfx':             {'type': 'list', 'min_count': 3},
     'scene_effects':   {'type': 'list', 'min_count': 3},
     'bgm':             {'type': 'dict'},

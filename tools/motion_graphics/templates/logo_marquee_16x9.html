@@ -5,6 +5,8 @@
 <title>logo_marquee motion (16:9 — infinite scrolling logo strip with edge fade mask)</title>
 <link rel="stylesheet" href="shared.css" />
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<!-- TL-04: 진짜 브랜드 SVG 로고 레지스트리 (window.BRAND_LOGOS). 미등록 brand는 이니셜 폴백 -->
+<script src="brand_logos.js"></script>
 <style>
   html, body { width: 1920px; height: 1080px; }
 
@@ -83,6 +85,15 @@
     line-height: 1;
     letter-spacing: var(--ls-tight);
   }
+  /* TL-04: 진짜 브랜드 SVG 로고 컨테이너 (이니셜 .logo-symbol 대체) */
+  .logo-glyph {
+    width: 88px;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-glyph svg { width: 100%; height: 100%; }
   .logo-label {
     font-size: 24px;
     font-weight: 600;
@@ -137,19 +148,37 @@
   document.getElementById("title").textContent = P.title || "함께 쓰는 도구들";
   document.getElementById("footer").textContent = P.footer || "모든 워크플로우 한 곳에서";
 
+  // TL-04: brand key가 레지스트리에 있으면 진짜 SVG, 없으면 기존 이니셜 타일 폴백
+  const getBrand = window.BRAND_LOGOS_GET || (() => null);
+
   function makeLogo(it) {
     const card = document.createElement("div");
     card.className = "logo-card";
-    card.style.background = it.bg || "#FFFFFF";
-    const sym = document.createElement("div");
-    sym.className = "logo-symbol";
-    sym.style.color = it.color || "#191919";
-    sym.textContent = it.symbol || "";
+
+    const brand = it.brand ? getBrand(it.brand) : null;
+
+    // 카드 배경: item 명시값 우선, 없으면 brand bg, 그래도 없으면 흰색 (하위호환)
+    card.style.background = it.bg || (brand && brand.bg) || "#FFFFFF";
+
+    if (brand) {
+      // 진짜 SVG 로고 주입
+      const glyph = document.createElement("div");
+      glyph.className = "logo-glyph";
+      glyph.innerHTML = brand.svg(it.fg || it.color);
+      card.appendChild(glyph);
+    } else {
+      // 폴백: 기존 이니셜 글자 타일
+      const sym = document.createElement("div");
+      sym.className = "logo-symbol";
+      sym.style.color = it.color || "#191919";
+      sym.textContent = it.symbol || "";
+      card.appendChild(sym);
+    }
+
     const lab = document.createElement("div");
     lab.className = "logo-label";
-    lab.style.color = it.color || "#191919";
-    lab.textContent = it.label || "";
-    card.appendChild(sym);
+    lab.style.color = it.color || (brand && brand.color) || "#191919";
+    lab.textContent = it.label || (brand && brand.name) || "";
     card.appendChild(lab);
     return card;
   }

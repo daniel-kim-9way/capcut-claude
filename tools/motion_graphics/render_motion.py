@@ -43,10 +43,16 @@ def render_html_to_png_sequence(
     fps: int,
     viewport_w: int = 1920,
     viewport_h: int = 1080,
+    transparent: bool = False,
+    card_opacity: float = 0.62,
 ) -> tuple[int, float]:
     """Open HTML via Playwright, step GSAP timeline per frame, screenshot each.
 
     Returns (frame_count, tl_duration_sec).
+
+    transparent=True: body 블루 배경을 투명으로 override + .card 배경을 반투명
+    (card_opacity)으로 만들고 omit_background로 캡처 → 진짜 alpha 보존.
+    카드 뒤로 메인 영상이 비쳐 보임 (검정 박스가 화면을 덮지 않음).
     """
     out_frames_dir.mkdir(parents=True, exist_ok=True)
     for old in out_frames_dir.glob("*.png"):
@@ -79,11 +85,31 @@ def render_html_to_png_sequence(
 
         page.goto(file_url, wait_until="networkidle")
 
+        # transparent 모드: 블루(chroma) 배경 제거. 카드 배경 처리는 card_opacity에 따라 분기.
+        #   - card_opacity < 1.0 : 카드를 반투명 dark(rgba(13,13,15,α))로 강제 → 텍스트/그래픽
+        #       카드가 영상 위에 "떠 보이게". (kinetic_type, graphic_insight 등 장식 카드)
+        #   - card_opacity >= 1.0: ⛔ .card 배경을 **덮어쓰지 않는다** → 템플릿 고유 배경
+        #       (노션 #FFF, 터미널 dark 등) 그대로 불투명. (2026-06-09 fix: 모든 카드를 0.62
+        #       dark로 강제 덮어 노션·모니터 등 UI 화면이 반투명해지던 버그 해결.)
+        if transparent:
+            style = "html, body { background: transparent !important; }"
+            if card_opacity < 1.0:
+                style += f" .card {{ background: rgba(13,13,15,{card_opacity}) !important; }}"
+            page.add_style_tag(content=style)
+
         # Wait until template signals ready (window.__ready + window.__tl)
         page.wait_for_function("() => window.__ready === true && !!window.__tl", timeout=10_000)
 
         # Fonts might load slightly after networkidle. Give a brief grace period.
         page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=5_000)
+
+        # 이미지 decode 대기 (TL-03, 2026-06-04): device_mockup 등 <img src=file://...>를
+        # 쓰는 템플릿은 첫 프레임 캡처 전에 모든 이미지가 완전히 로드돼야 깨짐 방지.
+        # 이미지가 없으면 every()가 즉시 true → 기존 템플릿 동작 영향 없음(하위호환).
+        page.wait_for_function(
+            "() => [...document.images].every(i => i.complete && i.naturalWidth > 0)",
+            timeout=10_000,
+        )
 
         tl_duration = float(page.evaluate("() => window.__tl.duration()"))
         total_frames = max(1, int(round(tl_duration * fps)))
@@ -99,7 +125,7 @@ def render_html_to_png_sequence(
                 progress,
             )
             frame_path = out_frames_dir / f"frame_{i:05d}.png"
-            page.screenshot(path=str(frame_path), omit_background=False, full_page=False)
+            page.screenshot(path=str(frame_path), omit_background=transparent, full_page=False)
 
             if i % 30 == 0:
                 elapsed = time.time() - t0
@@ -138,24 +164,27 @@ def ffmpeg_png_sequence_to_alpha_mov(
     frames_dir: Path,
     out_mov: Path,
     fps: int,
+    transparent: bool = False,
 ) -> None:
-    """PNG sequence → colorkey → ProRes 4444 MOV with alpha channel.
+    """PNG sequence → ProRes 4444 MOV with alpha channel.
 
-    colorkey 0x0000FF with similarity 0.20 and blend 0.10 — matches
-    chroma_remove.py semantics (Euclidean distance threshold + edge soften).
+    transparent=False (기본, 블루 크로마): colorkey 0x0000FF로 블루 배경을 alpha로.
+    transparent=True: PNG가 이미 native alpha(omit_background 캡처)를 가지므로
+        colorkey 생략하고 alpha를 그대로 보존 (반투명 카드 alpha 유지).
     """
+    vf = "format=yuva444p" if transparent else "colorkey=0x0000FF:0.20:0.10,format=yuva444p"
     cmd = [
         "ffmpeg", "-y",
         "-framerate", str(fps),
         "-i", str(frames_dir / "frame_%05d.png"),
-        "-vf", "colorkey=0x0000FF:0.20:0.10,format=yuva444p",
+        "-vf", vf,
         "-c:v", "prores_ks",
         "-profile:v", "4444",  # supports alpha
         "-pix_fmt", "yuva444p10le",
         "-qscale:v", "11",
         str(out_mov),
     ]
-    print(f"[ffmpeg] MOV alpha (ProRes 4444): {out_mov.name}")
+    print(f"[ffmpeg] MOV alpha (ProRes 4444){' [transparent]' if transparent else ''}: {out_mov.name}")
     subprocess.run(cmd, check=True, capture_output=True)
 
 
@@ -192,6 +221,14 @@ def main() -> int:
         "--keep-frames", action="store_true",
         help="keep PNG sequence (default: remove after MP4 made)",
     )
+    ap.add_argument(
+        "--transparent", action="store_true",
+        help="블루 크로마 대신 투명 배경 + 반투명 카드로 렌더 (영상이 카드 뒤로 비침)",
+    )
+    ap.add_argument(
+        "--card-opacity", type=float, default=0.62,
+        help="--transparent 시 카드 배경 불투명도 (0=완전투명, 1=불투명, 기본 0.62)",
+    )
     args = ap.parse_args()
 
     template = Path(args.template).resolve()
@@ -216,13 +253,15 @@ def main() -> int:
         fps=args.fps,
         viewport_w=args.width,
         viewport_h=args.height,
+        transparent=args.transparent,
+        card_opacity=args.card_opacity,
     )
 
     out_mp4 = out_base.with_suffix(".mp4")
     out_mov = out_base.with_suffix(".mov")
 
     ffmpeg_png_sequence_to_mp4(frames_dir, out_mp4, args.fps)
-    ffmpeg_png_sequence_to_alpha_mov(frames_dir, out_mov, args.fps)
+    ffmpeg_png_sequence_to_alpha_mov(frames_dir, out_mov, args.fps, transparent=args.transparent)
 
     if not args.keep_frames:
         shutil.rmtree(frames_dir, ignore_errors=True)

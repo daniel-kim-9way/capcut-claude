@@ -31,15 +31,15 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 # capcut_fx_patcher.py 와 check_registry_drift.py 가 이 파일을 읽는다.
 # ============================================================
 
+# 2026-06-08 사용자 결정: title/outro_animation(타자기) 기본 제거 → 선택. 대신 첫 클립
+# intro_video_animation(줌1)을 필수 오프닝 효과로. flash_warm 시작 효과도 기본 제거.
 REQUIRED_FX_KEYS_SPEC = {
-    'title_animation': {'type': 'dict',
-                        'rationale': '160404 edit: typewriter on title'},
-    'outro_animation': {'type': 'dict',
-                        'rationale': '160404 edit: typewriter on CTA'},
+    'intro_video_animation': {'type': 'dict',
+                              'rationale': '첫 클립 in-animation(줌1) — 시작 강조'},
     'sfx':             {'type': 'list', 'min_count': 3,
                         'rationale': 'intro + title_reveal + ticks'},
     'scene_effects':   {'type': 'list', 'min_count': 3,
-                        'rationale': 'flash + math_rush + lens_zoom×n'},
+                        'rationale': 'math_rush + lens_zoom×n (flash_warm 제거)'},
     'bgm':             {'type': 'dict',
                         'rationale': '전구간 배경음'},
     'filter':          {'type': 'dict',
@@ -157,7 +157,7 @@ def main():
         filter_templates[key] = {
             'display_name': name,
             'material': dict(e),
-            'default_intensity': e.get('value', 0.3),
+            'default_intensity': e.get('value', 0.5),
         }
     (OUT_DIR / 'filters.json').write_text(
         json.dumps(filter_templates, ensure_ascii=False, indent=2), encoding='utf-8'

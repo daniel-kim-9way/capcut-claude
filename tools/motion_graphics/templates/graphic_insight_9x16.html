@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>graphic_insight motion (9:16 — full-frame readable checklist)</title>
+<!--
+  graphic_insight_9x16 (2026-06-10) — 9:16 풀프레임 가독성 체크리스트
+  ------------------------------------------------------------------
+  graphic_insight_16x9(어두운 1500×880 카드)가 9:16 영상에 작게 박혀 가독성↓ 문제 → 폐기.
+  comparison_9x16 스타일 차용: 풀프레임 9:16 + 큰 글자 + 행별 rounded chip(가독 배경) + text-shadow.
+  - .card 클래스 미사용 → render_motion의 card_opacity 강제 override 무관(템플릿 CSS대로 렌더).
+  - 각 항목 = rounded chip(반투명 dark, 보라 체크박스). 순차 등장 → 순차 체크.
+  - 콘텐츠를 세로 중앙 band에 — 얼굴(상단)·자막(하단) 회피.
+  params: title(string), items(string[] ≤4), duration  ← graphic_insight_16x9와 동일(drop-in)
+  thumb: 0.5=행 등장+일부 체크, 0.9=전부 체크.
+-->
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  body { margin: 0; background: transparent; }
+
+  .stage {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .panel {
+    width: 1080px;
+    padding: 0 70px;
+    box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+
+  .gi-title {
+    font-size: 50px;
+    font-weight: 700;
+    color: #D8D8DE;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    text-align: center;
+    margin-bottom: 46px;
+    text-shadow: 0 3px 18px rgba(0,0,0,0.82), 0 1px 3px rgba(0,0,0,0.9);
+    opacity: 0; transform: translateY(16px);
+  }
+
+  .gi-row {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    padding: 30px 40px;
+    margin-bottom: 28px;
+    border-radius: 26px;
+    background: rgba(14, 14, 18, 0.84);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42);
+    opacity: 0; transform: translateY(20px);
+  }
+  .gi-row:last-child { margin-bottom: 0; }
+
+  .gi-check {
+    width: 66px; height: 66px;
+    border: 5px solid #7A7A82;
+    border-radius: 16px;
+    flex-shrink: 0;
+    position: relative;
+    background: transparent;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  .gi-check.checked { background: #B366FF; border-color: #B366FF; }
+  .gi-check .cm {
+    position: absolute; left: 14px; top: 4px;
+    color: #FFFFFF; font-size: 52px; font-weight: 800; line-height: 1;
+    opacity: 0;
+  }
+
+  .gi-text {
+    font-size: 52px;
+    font-weight: 600;
+    color: #FFFFFF;
+    letter-spacing: -0.01em;
+    line-height: 1.22;
+    flex: 1;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+  .gi-row.completed .gi-text { color: #C6C6CD; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="panel" id="panel">
+      <div class="gi-title" id="title">사람마다 빛나는 강점</div>
+      <div class="gi-row" id="row-0"><div class="gi-check" id="cb-0"><div class="cm" id="cm-0">✓</div></div><div class="gi-text" id="text-0"></div></div>
+      <div class="gi-row" id="row-1"><div class="gi-check" id="cb-1"><div class="cm" id="cm-1">✓</div></div><div class="gi-text" id="text-1"></div></div>
+      <div class="gi-row" id="row-2"><div class="gi-check" id="cb-2"><div class="cm" id="cm-2">✓</div></div><div class="gi-text" id="text-2"></div></div>
+      <div class="gi-row" id="row-3"><div class="gi-check" id="cb-3"><div class="cm" id="cm-3">✓</div></div><div class="gi-text" id="text-3"></div></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // window.__params 미주입 시 데모 기본값 — 단독 렌더 가능
+  const P = window.__params || {
+    title: "사람마다 빛나는 강점",
+    items: ["사람 모으고 분위기 살리기", "혼자 깊이 파고드는 몰입", "흩어진 정보 정리"],
+    duration: 6.0,
+  };
+
+  const D = Number(P.duration) || 6.0;
+  document.getElementById("title").textContent = String(P.title || "");
+  const items = (P.items || []).map((s) => String(s || "")).filter(Boolean).slice(0, 4);
+  items.forEach((text, i) => { document.getElementById(`text-${i}`).textContent = text; });
+  for (let i = items.length; i < 4; i++) { document.getElementById(`row-${i}`).style.display = "none"; }
+
+  const tl = gsap.timeline({ paused: true });
+
+  // (1) 제목 등장
+  tl.to("#title", { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.15);
+
+  // (2) 각 행 순차 등장 (앞쪽에 몰아 0.5 stop에 일부 안착)
+  const rowStart = 0.65;
+  const rowCycle = 0.32;
+  items.forEach((_, i) => {
+    tl.to(`#row-${i}`, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, rowStart + i * rowCycle);
+  });
+
+  // (3) 순차 체크 (보라 fill + checkmark pop)
+  const checkStart = rowStart + items.length * rowCycle + 0.35;
+  const checkCycle = 0.5;
+  items.forEach((_, i) => {
+    const at = checkStart + i * checkCycle;
+    tl.call(() => {
+      document.getElementById(`cb-${i}`).classList.add("checked");
+      document.getElementById(`row-${i}`).classList.add("completed");
+    }, [], at);
+    tl.to(`#cm-${i}`, { opacity: 1, duration: 0.25, ease: "back.out(2)" }, at);
+    tl.fromTo(`#cb-${i}`, { scale: 1 }, { scale: 1.15, duration: 0.15, yoyo: true, repeat: 1, ease: "power2.inOut" }, at);
+  });
+
+  // (4) tail hold
+  const consumed = checkStart + items.length * checkCycle;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

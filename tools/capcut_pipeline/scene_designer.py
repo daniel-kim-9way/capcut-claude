@@ -239,6 +239,55 @@ def _validate_device_mockup(motion_params: dict) -> tuple[bool, str | None]:
     return (True, None)
 
 
+# ============================================================
+# card_opacity 분류 (2026-06-09) — 템플릿별 **명시적** 투명/불투명 구분.
+# ============================================================
+# 원칙: "실제 UI 화면 / 디바이스 / 다이얼로그 / 알림 = 불투명(1.0)" (화면은 실물 surface라
+#        인물·배경이 비치면 깨져 보임), "영상 위에 띄우는 장식·데이터·텍스트 카드/심볼 =
+#        반투명(0.62)" (영상이 비쳐 레이어드 느낌). 사용자 원칙: "노션·모니터 화면은 투명 X".
+#
+# card_opacity >= 1.0 → render_motion이 .card 배경을 덮어쓰지 않고 템플릿 고유 배경
+# (노션 #FFF, 터미널 dark 등)을 그대로 불투명 유지. < 1.0 → rgba(13,13,15,α) 반투명 강제.
+# plan의 broll.card_opacity로 언제든 per-scene override.
+
+# ── 불투명(1.0): 실제 UI 화면/디바이스/다이얼로그/알림 ──
+_OPAQUE_TEMPLATES = frozenset({
+    # 데스크톱/웹 앱 화면
+    "ui_evidence_notion_16x9", "ui_evidence_terminal_16x9", "ui_evidence_finder_16x9",
+    "ui_evidence_code_editor_16x9", "ui_evidence_claude_code_16x9",
+    "ui_evidence_claude_code_welcome_16x9", "ui_evidence_slack_16x9",
+    "ui_evidence_discord_16x9", "ui_evidence_youtube_comment_16x9", "ai_chat_bubble_16x9",
+    # 모바일 앱 화면
+    "ui_evidence_slack_9x16", "ui_evidence_discord_9x16", "ui_evidence_instagram_dm_9x16",
+    "ui_evidence_kakaotalk_9x16", "ui_evidence_kakaotalk_16x9", "ui_evidence_youtube_comment_9x16",
+    # 다이얼로그 / 알림 / 실물 카드
+    "ui_evidence_comment_input_9x16",   # 댓글 입력 모달
+    "toast_notification_9x16",          # OS 토스트 (자체 rgba ...,0.94)
+    "ui_evidence_tweet_1x1",            # 실제 트윗 카드
+    # 실제 스크린샷
+    "device_mockup_9x16",
+})
+# ── 반투명(0.62): 장식·데이터·텍스트 카드/심볼 (명시 — 화면 아님) ──
+#   animated_beam, avatar_group, bar_chart, comparison, dna_helix(자체 0), dual_brand,
+#   dual_icon, graphic_insight(_16x9/_1x1), icon_claude/file/hero, kinetic_type, line_chart,
+#   logo_marquee, message_object, metric_ring, orbiting_circles, pricing_card, stat_card(*),
+#   text_hero_* → 모두 _OPAQUE_TEMPLATES에 없으므로 0.62.
+#
+# fallback: 명시 목록에 없는 **신규** 템플릿이 아래 prefix면 "화면"으로 보고 불투명 추정
+# (새 UI 화면이 추가됐는데 목록 누락 시 투명 버그 방지). 신규 추가 시 위 목록에 명시 등록 권장.
+_OPAQUE_FALLBACK_PREFIXES = ("ui_evidence_", "device_mockup", "ai_chat_bubble", "toast_notification")
+
+
+def _default_card_opacity(stem: str) -> float:
+    """template stem별 기본 card_opacity. 명시 목록 우선, 없으면 prefix fallback, 그 외 0.62."""
+    s = (stem or "").lower()
+    if s in _OPAQUE_TEMPLATES:
+        return 1.0
+    if any(s.startswith(p) for p in _OPAQUE_FALLBACK_PREFIXES):
+        return 1.0  # 신규 화면 추정 (목록에 명시 등록 권장)
+    return 0.62      # 장식/데이터/텍스트 카드: 영상 위에 떠 보이는 반투명
+
+
 def _render_motion_mov(
     motion_template: str,
     motion_params: dict,
@@ -1046,6 +1095,12 @@ def _overlay_placement_fields(broll: dict, *, static_text: str = "") -> dict[str
     # 하위호환: overlay_patcher가 아직 item.ratio 를 읽으므로 ratio 도 동일값으로 emit.
     out["ratio"] = out["overlay_h_ratio"]
 
+    # speech-anchor (2026-06-11): anchor_phrase 패스스루 — overlay_patcher가 transcript
+    # 단어 경계로 start_offset_sec를 자동 스냅. STT 원문에 실제 등장하는 구절이어야 매칭.
+    ap = broll.get("anchor_phrase")
+    if ap:
+        out["anchor_phrase"] = str(ap).strip()
+
     return out
 
 
@@ -1197,9 +1252,12 @@ def ingest(
                         project_name=project_name,
                         scene_idx=idx,
                         # 기본 투명(반투명 카드) — 검정 박스가 영상 가리는 것 방지.
+                        # 단 UI 화면(notion/terminal/모니터 등)은 기본 card_opacity=1.0(불투명).
                         # plan에서 broll.transparent:false 로 불투명, card_opacity로 농도 조절.
                         transparent=bool(broll.get("transparent", True)),
-                        card_opacity=float(broll.get("card_opacity", 0.62)),
+                        card_opacity=float(
+                            broll.get("card_opacity", _default_card_opacity(motion_template))
+                        ),
                     )
                 except (FileNotFoundError, ValueError) as e:
                     issues.append(f"scene {idx}: motion render setup error: {e}")
@@ -1348,6 +1406,9 @@ def ingest(
                     # (아네모네는 userFontData에 없어 path 미해석 → CapCut System 폴백 사고)
                     "font_name": emp.get("font_name", "Pretendard Black"),
                 }
+                # speech-anchor (2026-06-11): anchor_phrase 패스스루 → overlay_patcher 단어 스냅.
+                if emp.get("anchor_phrase"):
+                    emphasis_entry["anchor_phrase"] = str(emp["anchor_phrase"]).strip()
                 emphases.append(emphasis_entry)
 
     if issues:

@@ -6,20 +6,66 @@
 
 ---
 
-## ⛔ 필수 구성요소 (6개 카테고리 — 하나라도 빠지면 안 됨)
+## ⛔ 필수 구성요소 (5개 카테고리 — 하나라도 빠지면 안 됨)
 
-fx_plan.json은 이 6개 키를 **모두** 포함해야 합니다. 의도적 생략 시 `null`로 명시 + 주석:
+fx_plan.json은 이 5개 키를 **모두** 포함해야 합니다. 의도적 생략 시 `null`로 명시 + 주석:
 
-| 키 | 필수 타입 | 160404 레퍼런스 기본값 |
+| 키 | 필수 타입 | 기본값 |
 |---|---|---|
-| `title_animation` | dict | `{scene_idx: 0, preset: "typewriter"}` |
-| `outro_animation` | dict | `{scene_idx: -1, preset: "typewriter"}` |
+| `intro_video_animation` ⭐ | dict | `{scene_idx: 0, preset: "side_slide", duration_us: 400000}` — **첫 클립 사이드 슬라이드 인 효과** |
 | `sfx` | list (≥3) | intro + title_reveal + 각 강조 지점 tick |
-| `scene_effects` | list (≥3) | flash_warm + math_rush + lens_zoom ×n |
-| `bgm` | dict | `{preset: "bgm_good_mood", volume_db: -18}` |
+| `scene_effects` | list (≥3) | math_rush + lens_zoom ×n (자막정렬·≥1.5s, 겹침금지; **flash_warm 제거**) |
+| `bgm` | dict | `{path: "BGM/....mp3", volume_db: -25}` |
 | `filter` ⚡ | dict | `{preset: "natural_ii", intensity: 0.3}` ← **놓치기 쉬움** |
 
-**⚠️ 코드 게이트 작동**: `capcut_fx_patcher.py`는 이 키들이 빠지면 **exit 5로 거부**합니다. `--allow-incomplete`로 우회 가능하지만 권장 안 함.
+> ⛔ **현재 확정 규칙** (날짜는 최초 결정 시점):
+> 1. **타자기 애니메이션(`title_animation`/`outro_animation` typewriter) 기본 미사용** (2026-06-08) — 둘 다 **선택**(plan에 넣으면 적용되나 완결성 게이트에서 요구 안 함). 시작 강조는 `intro_video_animation`(첫 클립 사이드 슬라이드)이 담당.
+> 2. **시작 '미지근한 플래시(flash_warm)' 제거** (2026-06-08) — scene_effects는 lens_zoom 중심.
+> 3. **전역 배속 기본 1.2** (2026-06-08, 기존 1.15에서 상향 — 아래 `speed`).
+> 4. **타이틀/강조(emphasis) 자막은 상단(top)** 기본 (가운데 아님 — overlay_patcher title position 기본 `top`).
+
+**⚠️ 코드 게이트 작동**: `capcut_fx_patcher.py`는 위 5개 키가 빠지면 **exit 5로 거부**합니다. `--allow-incomplete`로 우회 가능하지만 권장 안 함. (required 키 SoT 3중 동기: `templates/_registry.json` ↔ `extract_templates.REQUIRED_FX_KEYS_SPEC` ↔ `verify_step.REQUIRED_FX_KEYS`)
+
+### ⭐ `intro_video_animation` — 첫 클립 인-애니메이션
+
+```jsonc
+"intro_video_animation": { "scene_idx": 0, "preset": "side_slide", "duration_us": 400000 }
+```
+- 메인 video 트랙의 클립(기본 첫 클립 scene 0)에 in-animation을 **비디오 세그먼트**로 주입 (텍스트 아님). **첫 클립에만** 적용 — 모든 클립에 넣지 않는다.
+- **기본 preset = `side_slide`(사이드 슬라이드)** (2026-06-11, 기존 `zoom_in`에서 변경). `side_slide`는 `templates/animations.json`에 등록 (PROMPTER_20260608_173233 드래프트에서 추출, `resource_id 7241878375516606978`, `panel/material_type=video`, dur 0.4s). `zoom_in`(0.5s)도 등록돼 있어 **대체 선택지**로 사용 가능하나 기본은 side_slide.
+- 시작 타자기/플래시를 대체하는 오프닝 강조. 구현: `patch_video_intro_animation()`. 로그 `[ok] intro_video_animation(side_slide) → main clip scene 0`.
+
+### ⭐ `speed` — 전역 배속 (기본 1.2, optional 키)
+
+`fx_plan.json`에 `"speed": 1.2` (기본값)를 넣으면, fx_patcher가 **모든 FX 적용 후 마지막에** CapCut "전체 선택 → N배속"과 **동일한 전역 압축**을 수행한다:
+
+- 모든 트랙의 모든 세그먼트 `target_timerange`(start·duration)를 `1/speed`로 압축
+- video/audio 세그먼트는 `seg.speed` + 참조 speed 머티리얼을 `speed`로 설정 (없으면 생성)
+- `draft.duration`도 `1/speed`로 압축 → 영상·자막·B-roll·emphasis·SFX·BGM **전부 같은 비율**로 줄어 싱크 유지
+
+```jsonc
+"speed": 1.2   // 기본 1.2 (2026-06-08 상향, 기존 1.15). 배속 원치 않으면 1.0(no-op). extract_fx_candidates가 자동 생성.
+```
+
+- `extract_fx_candidates.py`가 `speed: 1.2`를 **자동 생성**한다. 다른 배속을 원하면 값만 수정.
+- ⚠️ 오디오(나레이션·BGM·SFX)는 배속만큼 **피치가 약간 상승**한다(수동 select-all 배속과 동일한 동작, 사용자 수용). 재인코딩 불필요 — 드래프트 레벨.
+- 필수 키와 **별개**(없거나 1.0이면 no-op). `--verify-completeness`는 speed를 검사하지 않음. `fx_patcher`의 코드 기본값도 `plan.get('speed', 1.2)`.
+- 구현: `apply_global_speed()` ([capcut_fx_patcher.py](../../../tools/capcut_pipeline/capcut_fx_patcher.py)). 패치 로그에 `[ok] global_speed x1.2 → N segments compressed ...` 확인.
+
+---
+
+## 🤖 자동 후처리 (extract_fx_candidates / fx_patcher 내장 — plan 수동 작성 불필요)
+
+아래 동작은 코드에 **이미 구현**돼 있어 fx_plan을 손대지 않아도 자동 적용된다. (모두 2026-06-11)
+
+| 동작 | 무엇을 / 왜 |
+|---|---|
+| **closer-suppression** | 마지막 emphasis(보통 CTA "댓글에 X")의 **SFX(tick)를 자동 제거**해 마지막 멘트를 효과음 없이 조용히 닫아 여운을 준다. 단 그 시점의 **시각 강조 `lens_zoom`(scene_effect)는 유지**. |
+| **lens_zoom 배치 (2026-06-11 개정)** | 모든 `lens_zoom`(emphasis + 컷 seam cover-the-cut)은 ① **자막 cue 경계에 시작·끝 스냅**(자막 바뀌는 타이밍에 끊김), ② **영상 cut(씬 경계)을 넘지 않게 그 씬 안에 가둠(컷에서 끊김, 자막보다 우선)** + 최소 1.8s clean(≥1.5s 최종)(과거 0.6s seam→0.5s 어색 폐기), ③ **겹침·인접(연속) 금지**(emphasis zoom 우선 배치 → 컷 seam은 interval 겹침 X **AND** 다른 lens_zoom과 `ZOOM_GAP=1.5s`(clean) 이상 떨어질 때만). `build_fx_plan`의 `get_subtitle_cue_bounds`+`_snap_zoom_to_cues`가 자동. ⚠️ 과거 SEAM_GUARD는 시작거리만 봐서 긴 emphasis zoom(5.63s) 안에 0.6s seam이 박히는 **중복 버그** 있었음 → interval 겹침 검사로 해소. [[feedback_capcut_lens_zoom_cue_aligned]] |
+| **SFX de-dup** | 생성된 SFX 중 **0.05초 이내 중복 이벤트 자동 제거** — 인트로/타이틀/emphasis가 같은 시점을 동시 유발할 때 '띡띡' 겹침 방지. |
+| **deterministic BGM** | `_pick_bgm_skeleton(seed)`가 `random.choice` 대신 **SHA1(영상명) % len** 결정론 픽 → 같은 영상 재실행 시 BGM 폴백이 안 바뀜(idempotent). 이는 **폴백**일 뿐 — LLM이 톤에 맞춰 `bgm.path`를 덮어쓰는 원칙은 그대로. |
+
+> **향후 계획 (선택)**: voice-sidechain ducking — 현재 BGM은 flat −25dB. 중기적으로 주입 전 ffmpeg로 나레이션 대비 ~10dB pre-duck 옵션 추가 예정.
 
 ---
 
@@ -29,8 +75,10 @@ fx_plan.json은 이 6개 키를 **모두** 포함해야 합니다. 의도적 생
 |---|---|---|---|
 | **FILTER** ⚡ | `natural_ii` | 인물 톤 보정 ("천연 ll") | intensity 0.5, 전구간 |
 | **BGM** | `bgm_good_mood` | 전구간 배경음 | 영상 전체, -18~-20dB |
-| text animation | `typewriter` | 제목/CTA 타자기 in-animation | 1.4s |
-| scene effect | `flash_warm` | 인트로 플래시 | 1.87s |
+| video in-anim ⭐ | `side_slide` | **첫 클립 사이드 슬라이드 인 효과** (시작 강조, intro_video_animation) | 0.4s |
+| video in-anim | `zoom_in` | 첫 클립 줌1 (대체 선택지 — 기본은 side_slide) | 0.5s |
+| text animation | `typewriter` | 제목/CTA 타자기 (⛔ 2026-06-08 기본 미사용 — 선택) | 1.4s |
+| scene effect | ~~`flash_warm`~~ | ⛔ 시작 플래시 — 2026-06-08 기본 제거 | 1.87s |
 | scene effect | `math_rush` | 타이틀 리빌 | 3.0s |
 | scene effect | `lens_zoom` | 강조 지점 렌즈 줌 | 5.63s |
 | SFX | `keyboard_typing` | 인트로 훅 | 1.87s |
@@ -48,12 +96,15 @@ fx_plan.json은 이 6개 키를 **모두** 포함해야 합니다. 의도적 생
 
 | 시점 | filter | bgm | 씬효과 | SFX | 애니메이션 |
 |---|---|---|---|---|---|
-| **전구간** | `natural_ii` ⚡ | `bgm_good_mood` | — | — | — |
-| 0.00s | ↑ | ↑ | `flash_warm` | `keyboard_typing` | `typewriter` on title |
+| **전구간** | `natural_ii` ⚡ | 로컬 BGM(-25dB) | — | — | `speed` 1.2 전역 |
+| 0.00s | ↑ | ↑ | — (flash 제거) | `keyboard_typing`(선택) | ⭐ **`side_slide` on 첫 클립** (intro_video_animation) |
 | ~2.5-3s | ↑ | ↑ | `math_rush` | `mouse_click` | — |
 | 첫 강조 (6-8s 부근) | ↑ | ↑ | `lens_zoom` | `ui_notify` | — |
 | 주요 emphasis 각각 | ↑ | ↑ | `lens_zoom` | `tick` | — |
-| 마지막 CTA | ↑ | ↑ | — | `tick` (선택) | `typewriter` on CTA |
+| 컷 seam마다 | ↑ | ↑ | `lens_zoom`(자막정렬·≥1.5s, 자동) | — | — |
+| 마지막 CTA | ↑ | ↑ | `lens_zoom`만 유지 | **SFX 없음** (closer-suppression 자동) | — (타자기 제거) |
+
+⛔ 타이틀/강조(emphasis) 자막은 **상단(top)** 배치 기본 (가운데 금지). 타이틀 등장 시점에는 emphasis 자막을 **동시에 띄우지 말 것** (오프닝은 타이틀 + 첫 클립 사이드 슬라이드만; emphasis는 타이틀 사라진 뒤).
 
 ---
 
@@ -94,9 +145,8 @@ print(f'총 {len(main_segs)}씬, duration={(main_segs[-1]["target_timerange"]["s
 {
   "_comment": "프로젝트명 + 주제",
   "filter": { "preset": "natural_ii", "intensity": 0.3 },
-  "bgm": { "preset": "bgm_good_mood", "volume_db": -18 },
-  "title_animation": { "scene_idx": 0, "preset": "typewriter", "duration_us": 1400000 },
-  "outro_animation": { "scene_idx": -1, "preset": "typewriter" },
+  "bgm": { "path": "BGM/Sunlit Cup.mp3", "volume_db": -25 },
+  "intro_video_animation": { "scene_idx": 0, "preset": "side_slide", "duration_us": 400000 },
   "sfx": [
     {"preset": "keyboard_typing", "start_sec": 0.00, "duration_sec": 1.87},
     {"preset": "mouse_click",     "start_sec": <title_reveal_sec>, "duration_sec": 0.77},
@@ -105,11 +155,11 @@ print(f'총 {len(main_segs)}씬, duration={(main_segs[-1]["target_timerange"]["s
     {"preset": "tick",            "start_sec": <emphasis_2>,       "duration_sec": 0.87}
   ],
   "scene_effects": [
-    {"preset": "flash_warm", "start_sec": 0.00, "duration_sec": 1.87},
     {"preset": "math_rush",  "start_sec": <title_reveal_sec>, "duration_sec": 3.00},
     {"preset": "lens_zoom",  "start_sec": <first_emphasis>,   "duration_sec": 5.63},
     {"preset": "lens_zoom",  "start_sec": <emphasis_1>,       "duration_sec": 5.63}
-  ]
+  ],
+  "speed": 1.2
 }
 ```
 
@@ -131,13 +181,14 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/capcut_fx_patcher.py \
   --plan  "temp/<name>/fx_plan.json"
 ```
 
-**완료 조건**: 로그에 다음 6개 `[ok]` 모두 존재 확인:
-- `[ok] title_animation(typewriter) → text ...`
-- `[ok] outro_animation(typewriter) → text ...`
-- `[ok] sfx[...]` 라인 **3개 이상**
-- `[ok] scene_effect[...]` 라인 **3개 이상**
-- `[ok] bgm bgm_good_mood duration=...`
+**완료 조건**: 로그에 다음 `[ok]` 모두 존재 확인:
+- `[ok] intro_video_animation(side_slide) → main clip scene 0` ⭐
+- `[ok] sfx[...]` 라인 **3개 이상** (마지막 CTA tick은 closer-suppression으로 자동 제거됨 / 0.05s 중복 de-dup 적용)
+- `[ok] scene_effect[...]` 라인 **3개 이상** (flash_warm 없음; 컷 seam zoom 포함 모두 자막정렬·≥1.5s)
+- `[ok] bgm <트랙명> duration=...`
 - `[ok] filter natural_ii intensity=... dur=...` ⚡
+- `[ok] global_speed x1.2 → N segments compressed ...`
+- (title_animation/outro_animation은 plan에 명시한 경우에만 로그에 나타남 — 기본 미사용)
 
 ⚠️ `filter` 줄 안 보이면 fx_plan.json에 `filter` 키 빠진 것. Step 4 게이트 통과했는데 이게 나올 수는 없지만, 만약 `--allow-incomplete` 썼다면 여기서 걸러짐.
 
@@ -206,10 +257,12 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/capcut_fx_patcher.py \
 
 ## ✅ 최종 체크리스트 (완료 전 확인)
 
-- [ ] fx_plan.json에 6개 키 모두 존재 (`filter`, `bgm`, `title_animation`, `outro_animation`, `sfx`, `scene_effects`)
+- [ ] fx_plan.json에 5개 키 모두 존재 (`intro_video_animation`, `sfx`, `scene_effects`, `bgm`, `filter`) + `speed`(기본 1.2)
 - [ ] `--verify-completeness` 로 `[PASS]` 확인
+- [ ] flash_warm 없음 / typewriter 없음 (기본 제거)
+- [ ] 마지막 CTA에 SFX 없음 (closer-suppression) / 컷 seam zoom 자막정렬·≥1.5s 자동
 - [ ] CapCut 완전 종료 확인 (`tasklist`)
 - [ ] `PYTHONIOENCODING=utf-8` 프리픽스 사용
-- [ ] 패치 로그에 6개 `[ok]` 모두 존재 (특히 `filter` + `bgm`)
-- [ ] CapCut 열어 재생 확인 → filter 색조 보이는지 특히 체크
+- [ ] 패치 로그에 `intro_video_animation`·`sfx`·`scene_effect`·`bgm`·`filter`·`global_speed` `[ok]` 존재
+- [ ] CapCut 열어 재생 확인 → 첫 클립 사이드 슬라이드 인 효과 + filter 색조 + 타이틀/강조 상단 배치 체크
 - [ ] 확인 후 **"저장 안 함"** 으로 닫기

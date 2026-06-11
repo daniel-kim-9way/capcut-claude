@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>kinetic_type motion (9:16 — 절제된 풀스크린 키네틱 타이포)</title>
+<!--
+  kinetic_type_9x16 (TL-02, 2026-06-04)
+  ------------------------------------------------------------------
+  검증된 패턴 조합만 사용 (v1 scope — swap_pairs 제외):
+   (1) 어절 단위 split (aurora 의 .split(/\s+/) 재사용)
+   (2) overflow:hidden 마스크 컨테이너 + 내부 span translateY(100%)→0 mask-reveal
+       (stagger, ease power3.out = --ease-natural)
+   (3) accent_words 만 underline scaleX 0→1 형광펜 (stat_card 패턴, 흰 텍스트 유지, accent 1색)
+  모션은 전부 window.__tl GSAP timeline (setInterval / @keyframes 금지).
+  thumb 게이트 안무: progress 0.2 = 첫 라인 mask-reveal 완료(안착),
+   0.5 = accent underline 그려진 정적 상태, 0.9 = tail hold 정적 상태.
+  세 stop 이 모두 '움직임 중간'이 아니라 '안착 상태'에 떨어지도록 구간을 앞에 몰고
+  나머지를 tail hold 로 채운다.
+-->
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+
+  /* 9:16 세로 풀스크린 — 텍스트가 화면을 채우며 세로 가운데 정렬 */
+  .stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 90px; /* negative-space: 좌우 여백 */
+    box-sizing: border-box;
+  }
+
+  /* 한 구간(line) = 어절들의 묶음. 줄바꿈은 어절 단위로 자연스럽게 wrap */
+  .line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    width: 100%;
+    column-gap: 0.45em;   /* 어절 사이 명확한 공백 (한국어 가독 — 0.28em은 붙어 보임) */
+    row-gap: 0.12em;
+    margin-bottom: 0.32em;
+  }
+  .line:last-child { margin-bottom: 0; }
+
+  /* 어절 mask 컨테이너 — overflow:hidden 으로 아래에서 올라오는 reveal 을 잘라낸다 */
+  .word {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    /* 어절 사이 공백: column-gap 이 일부 Chromium flex 에서 안 먹어 margin 으로 확실히 띄움 */
+    margin: 0 0.26em;
+    /* baseline 정렬 유지를 위해 inner 의 descender 여유분 padding */
+    padding-bottom: 0.08em;
+  }
+
+  /* 실제 글자 — 초기 translateY(100%) 로 mask 밖(아래)에 숨어 있다가 0 으로 reveal */
+  .word-inner {
+    position: relative;
+    z-index: 1;                  /* 텍스트가 형광펜 위에 오게 (밑줄 z-index 0 위) */
+    display: inline-block;
+    font-size: 132px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: var(--ls-tight, -0.01em);
+    color: var(--text-primary, #fff); /* 흰색 텍스트 (accent 여부와 무관하게 항상 흰색) */
+    transform: translateY(100%);
+    will-change: transform;
+  }
+
+  /* accent 어절: 텍스트는 흰색 유지, 아래에 형광펜 underline 만 그려진다 (accent 1색) */
+  .word.accent .underline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0.02em;
+    height: 0.16em;
+    /* DT-01 의 --accent (영상당 1색) 사용. 미도입 환경 폴백 = --accent-purple */
+    background: var(--accent, var(--accent-purple));
+    border-radius: 0.06em;
+    transform-origin: left center;
+    transform: scaleX(0);
+    opacity: 0.92;
+    z-index: 0; /* 배경(blue chroma) 위, 텍스트(z-index 1) 아래 — 형광펜 느낌. ⛔ -1 금지(배경 뒤로 사라짐) */
+  }
+</style>
+</head>
+<body>
+  <div class="stage" id="stage"></div>
+
+<script>
+(() => {
+  // window.__params 미주입 시 데모용 기본값 — 단독 렌더 가능
+  const P = window.__params || {
+    lines: ["기록하지 않으면", "기억은 사라진다"],
+    accent_words: ["기억"],
+    duration: 5.0,
+  };
+
+  const stageEl = document.getElementById("stage");
+  const lines = (P.lines && P.lines.length ? P.lines : [""]).map((s) => String(s || ""));
+  const accentList = (P.accent_words || []).filter(Boolean);
+  const D = Number(P.duration) || 5.0;
+
+  // ----- DOM 빌드: 라인 → 어절(.split(/\s+/), aurora 방식) → mask 컨테이너 -----
+  // 어절 단위로만 분해 (음절/자모 분리 안 함) → 한국어 어미/조사 의미 단위 보존,
+  // semantic wrap 과의 충돌 최소화.
+  const allInners = []; // reveal 대상 전체 (stagger 순서)
+  lines.forEach((lineText) => {
+    const lineEl = document.createElement("div");
+    lineEl.className = "line";
+    const words = lineText.split(/\s+/).filter(Boolean);
+    (words.length ? words : [""]).forEach((w) => {
+      const isAccent = accentList.some((a) => a && w.includes(a));
+      const wordEl = document.createElement("span");
+      wordEl.className = isAccent ? "word accent" : "word";
+
+      const inner = document.createElement("span");
+      inner.className = "word-inner";
+      inner.textContent = w;
+      wordEl.appendChild(inner);
+      allInners.push(inner);
+
+      if (isAccent) {
+        const ul = document.createElement("span");
+        ul.className = "underline";
+        wordEl.appendChild(ul);
+      }
+      lineEl.appendChild(wordEl);
+    });
+    stageEl.appendChild(lineEl);
+  });
+
+  const accentEls = stageEl.querySelectorAll(".word.accent .underline");
+
+  // ----- GSAP timeline (paused; render_motion.py 가 progress 로 프레임 스텝) -----
+  const tl = gsap.timeline({ paused: true });
+
+  // [안무 핵심] thumb 게이트(progress 0.2/0.5/0.9)가 전부 '안착 상태'에 떨어지도록
+  // reveal + underline 의 '움직이는 구간 전체'를 timeline 앞쪽 EARLY_BUDGET 안에 몰아넣고,
+  // 나머지를 tail hold(정적)로 채운다. EARLY_BUDGET = 0.18*D 로 잡아 0.2 stop 직전에
+  // 모든 모션이 끝나게 한다(첫 라인 reveal 은 그보다 더 일찍 완료). 어절/accent 가 많아
+  // 자연 길이(natural)가 budget 을 넘으면 stagger·duration 을 비례 압축해 budget 안에 맞춘다.
+  // --stagger-base(DT-02) 의도값 0.05s, REVEAL/ULINE 은 --ease-natural/snappy 곡선.
+  const STAGGER_BASE = 0.05;
+  const REVEAL_DUR_BASE = 0.45;
+  const ULINE_DUR_BASE = 0.4;
+  const nInner = allInners.length;
+  const nAccent = accentEls.length;
+
+  // budget: 움직임이 끝나야 하는 절대 시각. 0.2*D 직전(0.18*D)으로 잡아 0.2 stop 직전에
+  // 모든 모션이 끝나게 한다. 시각적 가독을 위해 0.7s 하한을 두되, 그 하한조차 0.2*D 를
+  // 넘지 않게 cap(아주 짧은 D 에서도 0.2 stop 이 안착 상태에 떨어지도록). kinetic_type 은
+  // 감정/주장 비트용이라 실사용 D 는 보통 4~7s(데모 기본 5.0s).
+  const EARLY_BUDGET = Math.min(Math.max(0.7, 0.18 * D), 0.2 * D);
+  // reveal 자연길이 + underline 자연길이(둘은 순차) = natural window
+  const naturalReveal = REVEAL_DUR_BASE + STAGGER_BASE * Math.max(0, nInner - 1);
+  const naturalUline = nAccent
+    ? ULINE_DUR_BASE + STAGGER_BASE * Math.max(0, nAccent - 1) : 0;
+  const naturalWindow = naturalReveal + naturalUline;
+  // budget 초과 시 비례 압축(0~1). tail 이 항상 양수가 되도록 보장한다.
+  const k = naturalWindow > EARLY_BUDGET ? EARLY_BUDGET / naturalWindow : 1.0;
+
+  const STAGGER = STAGGER_BASE * k;
+  const REVEAL_DUR = REVEAL_DUR_BASE * k;
+  const ULINE_DUR = ULINE_DUR_BASE * k;
+
+  // (1) 어절 mask-reveal: translateY(100%)→0, stagger, ease power3.out(=--ease-natural)
+  const revealStart = 0.0;
+  tl.to(allInners, {
+    y: 0,
+    duration: REVEAL_DUR,
+    stagger: STAGGER,
+    ease: "power3.out",
+  }, revealStart);
+
+  // 마지막 어절까지 reveal 이 끝나는 시각 (이보다 앞서 '첫 라인'은 이미 안착)
+  const revealEnd = revealStart + REVEAL_DUR
+    + STAGGER * Math.max(0, nInner - 1);
+
+  // (2) accent underline 형광펜: scaleX 0→1 (흰 텍스트 유지). reveal 직후 그려지고 이후 정적.
+  let consumed = revealEnd;
+  if (nAccent) {
+    tl.to(accentEls, {
+      scaleX: 1,
+      duration: ULINE_DUR,
+      stagger: STAGGER,
+      ease: "power2.out",
+    }, revealEnd);
+    consumed = revealEnd + ULINE_DUR + STAGGER * Math.max(0, nAccent - 1);
+  }
+
+  // (3) tail hold: 남은 시간을 정적 상태로 채워 마감(--accent underline 그려진 안착 프레임).
+  //     consumed <= EARLY_BUDGET <= 0.18*D 이므로 progress 0.2/0.5/0.9 stop 은
+  //     모두 이 tail 정적 구간에 떨어진다.
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

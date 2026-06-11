@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>split_reveal motion (9:16 — 정사각 카드 상단)</title>
+<!--
+  split_reveal_9x16 (2026-06-11 재설계) — 전(前)→후(後) 와이프, **정사각 카드를 상단에**.
+  ------------------------------------------------------------------
+  모션 B-roll은 overlay_patcher가 scale 1.0(캔버스 가득)으로 고정하므로, MOV는 9:16 풀프레임
+  (1080x1920)이되 **카드를 상단 band에만 그려** 얼굴(중앙)·자막(하단) zone을 비운다.
+  → 결과: 9:16 토킹헤드 영상 상단에 작은 정사각 카드가 얹힘(얼굴 안 가림).
+  카드 배경이 보라 디바이더에 쓸려 전→후로 와이프, 텍스트는 깔끔 핸드오프.
+  params: before_text, after_text, before_label(기본 "전"), after_label(기본 "후"), accent, duration
+  thumb: 0.3=전, 0.5=와이프중, 0.85=후 안착.
+-->
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="shared_motion.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  body { margin: 0; background: transparent; }
+  /* 카드를 상단 band에 배치 (account-name 위험존 아래, 얼굴 zone 위) */
+  .stage { position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 200px; }
+  .wrap { position: relative; width: 680px; height: 560px; }
+
+  .panel { position: absolute; inset: 0; border-radius: 40px; overflow: hidden; }
+  .panel.before { background: rgba(22, 20, 30, 0.90); border: 2px solid rgba(255,255,255,0.08); }
+  .panel.after  { background: rgba(28, 20, 44, 0.95); border: 2px solid rgba(179,102,255,0.34);
+                  clip-path: inset(0 100% 0 0); }
+
+  .txt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+         padding: 0 56px; box-sizing: border-box; text-align: center;
+         font-size: 66px; font-weight: 800; line-height: 1.16; letter-spacing: -0.01em;
+         text-shadow: 0 4px 20px rgba(0,0,0,0.78); }
+  #before-txt { color: #C7C0D2; }
+  #after-txt  { color: #FFFFFF; opacity: 0; }
+
+  .chip { position: absolute; bottom: 30px; font-size: 30px; font-weight: 800; padding: 9px 26px; border-radius: 999px; letter-spacing: 0.02em; z-index: 3; }
+  .chip.b { left: 32px; background: #38323f; color: #d8c8e6; }
+  .chip.a { right: 32px; background: var(--accent, #B366FF); color: #10101a; opacity: 0; }
+
+  .divider { position: absolute; top: -8px; bottom: -8px; left: 0; width: 6px; border-radius: 3px; z-index: 4;
+    background: var(--accent, #B366FF); box-shadow: 0 0 26px 3px rgba(179,102,255,0.85); opacity: 0; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="wrap" id="wrap">
+      <div class="panel before"></div>
+      <div class="panel after" id="after"></div>
+      <div class="txt" id="before-txt"></div>
+      <div class="txt" id="after-txt"></div>
+      <div class="chip b" id="chip-b"></div>
+      <div class="chip a" id="chip-a"></div>
+      <div class="divider" id="divider"></div>
+    </div>
+  </div>
+<script>
+(() => {
+  const P = window.__params || {
+    before_text: "나에겐 안 보여도",
+    after_text: "남 눈엔 재능",
+    before_label: "전",
+    after_label: "후",
+    accent: "#B366FF",
+    duration: 5.0,
+  };
+  const D = Number(P.duration) || 5.0;
+  if (P.accent) document.documentElement.style.setProperty("--accent", P.accent);
+  document.getElementById("before-txt").textContent = String(P.before_text || "");
+  document.getElementById("after-txt").textContent = String(P.after_text || "");
+  document.getElementById("chip-b").textContent = String(P.before_label || "전");
+  document.getElementById("chip-a").textContent = String(P.after_label || "후");
+
+  const wrap = document.getElementById("wrap");
+  const after = document.getElementById("after");
+  const divider = document.getElementById("divider");
+  const beforeTxt = document.getElementById("before-txt");
+  const afterTxt = document.getElementById("after-txt");
+  const chipA = document.getElementById("chip-a");
+  const wmax = 680;
+
+  gsap.set(wrap, { opacity: 0, y: 18, scale: 0.97 });
+
+  const tl = gsap.timeline({ paused: true });
+  tl.to(wrap, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 0.1);
+  tl.to(divider, { opacity: 1, duration: 0.2 }, 0.7);
+  const st = { w: 0 };
+  tl.to(st, {
+    w: 1, duration: 1.2, ease: "power2.inOut",
+    onUpdate: () => {
+      after.style.clipPath = "inset(0 " + ((1 - st.w) * 100) + "% 0 0)";
+      divider.style.left = (st.w * wmax) + "px";
+    },
+  }, 0.8);
+  tl.to(beforeTxt, { opacity: 0, y: -10, duration: 0.3, ease: "power2.in" }, 1.15);
+  tl.fromTo(afterTxt, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 1.55);
+  tl.to(chipA, { opacity: 1, duration: 0.3, ease: "back.out(1.6)" }, 1.95);
+  tl.to(divider, { opacity: 0, duration: 0.3 }, 2.0);
+  tl.to(wrap, { scale: 1.02, duration: 0.4, ease: "power1.out" }, 2.15);
+
+  const consumed = 2.6;
+  if (window.MGMotion) window.MGMotion.livingTail(tl, wrap, consumed, D);
+  else tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

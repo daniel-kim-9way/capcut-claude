@@ -1,28 +1,8 @@
 {
   "version": 1,
-  "generated_at": "2026-05-13T05:45:49Z",
+  "generated_at": "2026-06-11T05:20:21Z",
   "thumbs_dir": "tools/motion_graphics/out/thumbs",
   "templates": {
-    "ai_chat_bubble_16x9": {
-      "template_path": "tools/motion_graphics/templates/ai_chat_bubble_16x9.html",
-      "aspect": "16:9",
-      "viewport": [
-        1920,
-        1080
-      ],
-      "scenario_hints": [
-        "일반 AI 챗 UI (ChatGPT/Claude 챗)"
-      ],
-      "params_schema": [
-        "header",
-        "user",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
     "animated_beam_16x9": {
       "template_path": "tools/motion_graphics/templates/animated_beam_16x9.html",
       "aspect": "16:9",
@@ -51,27 +31,6 @@
         "tools/motion_graphics/out/thumbs/animated_beam_16x9__end.png"
       ]
     },
-    "avatar_group_1x1": {
-      "template_path": "tools/motion_graphics/templates/avatar_group_1x1.html",
-      "aspect": "1:1",
-      "viewport": [
-        1080,
-        1080
-      ],
-      "scenario_hints": [
-        "N명 사용 중 군집 + 카운트업"
-      ],
-      "params_schema": [
-        "label_top",
-        "total",
-        "label_bottom",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
     "bar_chart_16x9": {
       "template_path": "tools/motion_graphics/templates/bar_chart_16x9.html",
       "aspect": "16:9",
@@ -99,58 +58,91 @@
         "tools/motion_graphics/out/thumbs/bar_chart_16x9__end.png"
       ]
     },
-    "dual_brand_1x1": {
-      "template_path": "tools/motion_graphics/templates/dual_brand_1x1.html",
-      "aspect": "1:1",
+    "comparison_9x16": {
+      "template_path": "tools/motion_graphics/templates/comparison_9x16.html",
+      "aspect": "9:16",
       "viewport": [
         1080,
-        1080
+        1920
       ],
-      "scenario_hints": [
-        "두 브랜드 진짜 SVG 로고 비교"
-      ],
+      "scenario_hints": [],
       "params_schema": [
-        "left",
-        "right",
-        "vs_text",
+        "left_title",
+        "right_title",
+        "left_items",
+        "right_items",
         "duration"
       ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_comparison_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_comparison_9x16.mp4",
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/comparison_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/comparison_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/comparison_9x16__end.png"
+      ]
     },
-    "dual_icon_1x1": {
-      "template_path": "tools/motion_graphics/templates/dual_icon_1x1.html",
-      "aspect": "1:1",
+    "device_mockup_9x16": {
+      "template_path": "tools/motion_graphics/templates/device_mockup_9x16.html",
+      "aspect": "9:16",
       "viewport": [
         1080,
-        1080
+        1920
       ],
       "scenario_hints": [
-        "두 브랜드 vs 비교 (텍스트 심볼)"
+        "실제 스크린샷을 폰/브라우저 프레임에 삽입",
+        "Ken Burns 리빌 (세로, UI 스크린샷 한정·실사 사진 금지)"
       ],
       "params_schema": [
-        "left",
-        "right",
-        "vs_text",
+        "device",
+        "image_path",
+        "caption",
+        "camera_move",
         "duration"
       ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_device_mockup_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_device_mockup_9x16.mp4",
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/device_mockup_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/device_mockup_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/device_mockup_9x16__end.png"
+      ]
     },
-    "graphic_insight_16x9": {
-      "template_path": "tools/motion_graphics/templates/graphic_insight_16x9.html",
-      "aspect": "16:9",
+    "dna_helix_9x16": {
+      "template_path": "tools/motion_graphics/templates/dna_helix_9x16.html",
+      "aspect": "9:16",
       "viewport": [
-        1920,
-        1080
+        1080,
+        1920
+      ],
+      "scenario_hints": [],
+      "params_schema": [
+        "title",
+        "accent_word",
+        "sub",
+        "accent",
+        "duration"
+      ],
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_dna_helix_9x16.mov",
+      "sample_mp4": null,
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/dna_helix_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/dna_helix_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/dna_helix_9x16__end.png"
+      ]
+    },
+    "graphic_insight_9x16": {
+      "template_path": "tools/motion_graphics/templates/graphic_insight_9x16.html",
+      "aspect": "9:16",
+      "viewport": [
+        1080,
+        1920
       ],
       "scenario_hints": [
-        "체크리스트 (3-4 item) 가로 다이어그램",
-        "보라 체크박스 순차 체크"
+        "체크리스트 (3-4 item) 풀스크린 가독",
+        "큰 글자 + 행별 chip + 보라 체크박스 순차 체크 (comparison 스타일)"
       ],
       "params_schema": [
         "title",
@@ -158,52 +150,13 @@
         "duration"
       ],
       "user_approved": true,
-      "sample_mov": "tools/motion_graphics/out/sample_graphic_insight_16x9.mov",
-      "sample_mp4": "tools/motion_graphics/out/sample_graphic_insight_16x9.mp4",
+      "sample_mov": "tools/motion_graphics/out/sample_graphic_insight_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_graphic_insight_9x16.mp4",
       "frame_thumbs": [
-        "tools/motion_graphics/out/thumbs/graphic_insight_16x9__early.png",
-        "tools/motion_graphics/out/thumbs/graphic_insight_16x9__mid.png",
-        "tools/motion_graphics/out/thumbs/graphic_insight_16x9__end.png"
+        "tools/motion_graphics/out/thumbs/graphic_insight_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/graphic_insight_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/graphic_insight_9x16__end.png"
       ]
-    },
-    "graphic_insight_1x1": {
-      "template_path": "tools/motion_graphics/templates/graphic_insight_1x1.html",
-      "aspect": "1:1",
-      "viewport": [
-        1080,
-        1080
-      ],
-      "scenario_hints": [
-        "체크리스트 정사각 (3-4 item)"
-      ],
-      "params_schema": [
-        "title",
-        "items",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
-    "icon_claude_1x1": {
-      "template_path": "tools/motion_graphics/templates/icon_claude_1x1.html",
-      "aspect": "1:1",
-      "viewport": [
-        1080,
-        1080
-      ],
-      "scenario_hints": [
-        "Anthropic Claude starburst 로고"
-      ],
-      "params_schema": [
-        "label",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
     },
     "icon_file_1x1": {
       "template_path": "tools/motion_graphics/templates/icon_file_1x1.html",
@@ -255,6 +208,31 @@
         "tools/motion_graphics/out/thumbs/icon_hero_1x1__end.png"
       ]
     },
+    "kinetic_type_9x16": {
+      "template_path": "tools/motion_graphics/templates/kinetic_type_9x16.html",
+      "aspect": "9:16",
+      "viewport": [
+        1080,
+        1920
+      ],
+      "scenario_hints": [
+        "감정·주장 풀스크린 키네틱 타이포",
+        "어절 mask-reveal + accent 형광펜 (세로)"
+      ],
+      "params_schema": [
+        "lines",
+        "accent_words",
+        "duration"
+      ],
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_kinetic_type_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_kinetic_type_9x16.mp4",
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/kinetic_type_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/kinetic_type_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/kinetic_type_9x16__end.png"
+      ]
+    },
     "line_chart_16x9": {
       "template_path": "tools/motion_graphics/templates/line_chart_16x9.html",
       "aspect": "16:9",
@@ -304,46 +282,6 @@
         "tools/motion_graphics/out/thumbs/logo_marquee_16x9__mid.png",
         "tools/motion_graphics/out/thumbs/logo_marquee_16x9__end.png"
       ]
-    },
-    "message_object_16x9": {
-      "template_path": "tools/motion_graphics/templates/message_object_16x9.html",
-      "aspect": "16:9",
-      "viewport": [
-        1920,
-        1080
-      ],
-      "scenario_hints": [
-        "빈 말풍선 심볼 (카톡/DM 왔어요)"
-      ],
-      "params_schema": [
-        "bubble_color",
-        "label",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
-    "message_object_9x16": {
-      "template_path": "tools/motion_graphics/templates/message_object_9x16.html",
-      "aspect": "9:16",
-      "viewport": [
-        1080,
-        1920
-      ],
-      "scenario_hints": [
-        "빈 말풍선 심볼 세로"
-      ],
-      "params_schema": [
-        "bubble_color",
-        "label",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
     },
     "metric_ring_1x1": {
       "template_path": "tools/motion_graphics/templates/metric_ring_1x1.html",
@@ -397,53 +335,60 @@
         "tools/motion_graphics/out/thumbs/orbiting_circles_1x1__end.png"
       ]
     },
-    "pricing_card_1x1": {
-      "template_path": "tools/motion_graphics/templates/pricing_card_1x1.html",
-      "aspect": "1:1",
+    "ratio_dots_9x16": {
+      "template_path": "tools/motion_graphics/templates/ratio_dots_9x16.html",
+      "aspect": "9:16",
       "viewport": [
         1080,
-        1080
+        1920
       ],
       "scenario_hints": [
-        "Pricing tier ('Pro 플랜에선')"
+        "비율을 셀 수 있는 점 그리드",
+        "'10명 중 7명','6만 생각 중 80%' 류 심리 통계 — filled개 점이 accent로 켜짐"
       ],
       "params_schema": [
-        "tier",
-        "tagline",
-        "ribbon",
-        "currency",
-        "price",
-        "period",
-        "cta",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
-    "stat_card_16x9": {
-      "template_path": "tools/motion_graphics/templates/stat_card_16x9.html",
-      "aspect": "16:9",
-      "viewport": [
-        1920,
-        1080
-      ],
-      "scenario_hints": [
-        "숫자 before→after 가로 bar"
-      ],
-      "params_schema": [
-        "top_number",
-        "bottom_number",
+        "total",
+        "filled",
+        "headline",
+        "caption",
+        "accent",
         "duration"
       ],
       "user_approved": true,
-      "sample_mov": "tools/motion_graphics/out/regression_stat_16x9.mov",
-      "sample_mp4": "tools/motion_graphics/out/regression_stat_16x9.mp4",
+      "sample_mov": "tools/motion_graphics/out/sample_ratio_dots_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_ratio_dots_9x16.mp4",
       "frame_thumbs": [
-        "tools/motion_graphics/out/thumbs/stat_card_16x9__early.png",
-        "tools/motion_graphics/out/thumbs/stat_card_16x9__mid.png",
-        "tools/motion_graphics/out/thumbs/stat_card_16x9__end.png"
+        "tools/motion_graphics/out/thumbs/ratio_dots_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/ratio_dots_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/ratio_dots_9x16__end.png"
+      ]
+    },
+    "split_reveal_9x16": {
+      "template_path": "tools/motion_graphics/templates/split_reveal_9x16.html",
+      "aspect": "9:16",
+      "viewport": [
+        1080,
+        1920
+      ],
+      "scenario_hints": [
+        "전(前)→후(後) 상태 전환 와이프",
+        "정사각 카드 상단 배치, 디바이더가 쓸고 지나가며 BEFORE→AFTER ('능력부족→강점자리','혼란→정돈')"
+      ],
+      "params_schema": [
+        "before_text",
+        "after_text",
+        "before_label",
+        "after_label",
+        "accent",
+        "duration"
+      ],
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_split_reveal_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_split_reveal_9x16.mp4",
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/split_reveal_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/split_reveal_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/split_reveal_9x16__end.png"
       ]
     },
     "stat_card_1x1": {
@@ -468,83 +413,6 @@
         "tools/motion_graphics/out/thumbs/stat_card_1x1__early.png",
         "tools/motion_graphics/out/thumbs/stat_card_1x1__mid.png",
         "tools/motion_graphics/out/thumbs/stat_card_1x1__end.png"
-      ]
-    },
-    "stat_card_9x16": {
-      "template_path": "tools/motion_graphics/templates/stat_card_9x16.html",
-      "aspect": "9:16",
-      "viewport": [
-        1080,
-        1920
-      ],
-      "scenario_hints": [
-        "숫자 before→after 세로 풀스크린"
-      ],
-      "params_schema": [
-        "top_number",
-        "top_suffix",
-        "bottom_number",
-        "bottom_suffix",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
-    "text_hero_aurora_16x9": {
-      "template_path": "tools/motion_graphics/templates/text_hero_aurora_16x9.html",
-      "aspect": "16:9",
-      "viewport": [
-        1920,
-        1080
-      ],
-      "scenario_hints": [
-        "결정적 한 줄 강조",
-        "감정 톤 결론",
-        "6색 aurora gradient sweep"
-      ],
-      "params_schema": [
-        "label",
-        "phrase",
-        "accent_words",
-        "duration"
-      ],
-      "user_approved": true,
-      "sample_mov": "tools/motion_graphics/out/smoke_aurora_16x9.mov",
-      "sample_mp4": "tools/motion_graphics/out/smoke_aurora_16x9.mp4",
-      "frame_thumbs": [
-        "tools/motion_graphics/out/thumbs/text_hero_aurora_16x9__early.png",
-        "tools/motion_graphics/out/thumbs/text_hero_aurora_16x9__mid.png",
-        "tools/motion_graphics/out/thumbs/text_hero_aurora_16x9__end.png"
-      ]
-    },
-    "text_hero_sparkles_1x1": {
-      "template_path": "tools/motion_graphics/templates/text_hero_sparkles_1x1.html",
-      "aspect": "1:1",
-      "viewport": [
-        1080,
-        1080
-      ],
-      "scenario_hints": [
-        "결정적 한 단어",
-        "성공·축하·결정",
-        "파티클 twinkle"
-      ],
-      "params_schema": [
-        "label",
-        "phrase",
-        "accent_words",
-        "duration",
-        "sparkle_count"
-      ],
-      "user_approved": true,
-      "sample_mov": "tools/motion_graphics/out/smoke_text_sparkles_1x1.mov",
-      "sample_mp4": "tools/motion_graphics/out/smoke_text_sparkles_1x1.mp4",
-      "frame_thumbs": [
-        "tools/motion_graphics/out/thumbs/text_hero_sparkles_1x1__early.png",
-        "tools/motion_graphics/out/thumbs/text_hero_sparkles_1x1__mid.png",
-        "tools/motion_graphics/out/thumbs/text_hero_sparkles_1x1__end.png"
       ]
     },
     "toast_notification_9x16": {
@@ -625,25 +493,30 @@
         "tools/motion_graphics/out/thumbs/ui_evidence_claude_code_welcome_16x9__end.png"
       ]
     },
-    "ui_evidence_code_editor_16x9": {
-      "template_path": "tools/motion_graphics/templates/ui_evidence_code_editor_16x9.html",
-      "aspect": "16:9",
+    "ui_evidence_comment_input_9x16": {
+      "template_path": "tools/motion_graphics/templates/ui_evidence_comment_input_9x16.html",
+      "aspect": "9:16",
       "viewport": [
-        1920,
-        1080
+        1080,
+        1920
       ],
-      "scenario_hints": [
-        "VSCode/Cursor IDE 코드 시연"
-      ],
+      "scenario_hints": [],
       "params_schema": [
-        "app_label",
-        "file",
+        "label",
+        "placeholder",
+        "text",
+        "button_label",
+        "accent",
         "duration"
       ],
-      "user_approved": false,
-      "sample_mov": null,
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_ui_evidence_comment_input_9x16.mov",
       "sample_mp4": null,
-      "frame_thumbs": []
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/ui_evidence_comment_input_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/ui_evidence_comment_input_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/ui_evidence_comment_input_9x16__end.png"
+      ]
     },
     "ui_evidence_discord_16x9": {
       "template_path": "tools/motion_graphics/templates/ui_evidence_discord_16x9.html",
@@ -668,25 +541,6 @@
         "tools/motion_graphics/out/thumbs/ui_evidence_discord_16x9__mid.png",
         "tools/motion_graphics/out/thumbs/ui_evidence_discord_16x9__end.png"
       ]
-    },
-    "ui_evidence_discord_9x16": {
-      "template_path": "tools/motion_graphics/templates/ui_evidence_discord_9x16.html",
-      "aspect": "9:16",
-      "viewport": [
-        1080,
-        1920
-      ],
-      "scenario_hints": [
-        "Discord 모바일"
-      ],
-      "params_schema": [
-        "channel",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
     },
     "ui_evidence_finder_16x9": {
       "template_path": "tools/motion_graphics/templates/ui_evidence_finder_16x9.html",
@@ -734,28 +588,6 @@
         "tools/motion_graphics/out/thumbs/ui_evidence_instagram_dm_9x16__mid.png",
         "tools/motion_graphics/out/thumbs/ui_evidence_instagram_dm_9x16__end.png"
       ]
-    },
-    "ui_evidence_kakaotalk_16x9": {
-      "template_path": "tools/motion_graphics/templates/ui_evidence_kakaotalk_16x9.html",
-      "aspect": "16:9",
-      "viewport": [
-        1920,
-        1080
-      ],
-      "scenario_hints": [
-        "카톡 (16:9 특수)"
-      ],
-      "params_schema": [
-        "header_title",
-        "sender_name",
-        "lines",
-        "timestamp",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
     },
     "ui_evidence_kakaotalk_9x16": {
       "template_path": "tools/motion_graphics/templates/ui_evidence_kakaotalk_9x16.html",
@@ -881,32 +713,6 @@
         "tools/motion_graphics/out/thumbs/ui_evidence_terminal_16x9__end.png"
       ]
     },
-    "ui_evidence_tweet_1x1": {
-      "template_path": "tools/motion_graphics/templates/ui_evidence_tweet_1x1.html",
-      "aspect": "1:1",
-      "viewport": [
-        1080,
-        1080
-      ],
-      "scenario_hints": [
-        "X (Twitter) testimonial / 인용"
-      ],
-      "params_schema": [
-        "avatar_initial",
-        "avatar_bg",
-        "display_name",
-        "handle",
-        "body",
-        "time",
-        "retweet_count",
-        "like_count",
-        "duration"
-      ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
-    },
     "ui_evidence_youtube_comment_16x9": {
       "template_path": "tools/motion_graphics/templates/ui_evidence_youtube_comment_16x9.html",
       "aspect": "16:9",
@@ -930,60 +736,33 @@
         "tools/motion_graphics/out/thumbs/ui_evidence_youtube_comment_16x9__end.png"
       ]
     },
-    "ui_evidence_youtube_comment_9x16": {
-      "template_path": "tools/motion_graphics/templates/ui_evidence_youtube_comment_9x16.html",
+    "vertical_timeline_9x16": {
+      "template_path": "tools/motion_graphics/templates/vertical_timeline_9x16.html",
       "aspect": "9:16",
       "viewport": [
         1080,
         1920
       ],
       "scenario_hints": [
-        "YouTube 댓글 + CTA (모바일)"
+        "VO 동기 세로 단계 진행선",
+        "정사각 카드 상단 배치, '인식→수용→행동'·'1→2→3단계' — 레일 head 도달 순간 dot 켜짐(얼굴 안 가림)"
       ],
       "params_schema": [
-        "video_title",
-        "channel_name",
-        "comments_count",
+        "steps",
+        "title",
+        "accent",
         "duration"
       ],
-      "user_approved": false,
-      "sample_mov": null,
-      "sample_mp4": null,
-      "frame_thumbs": []
+      "user_approved": true,
+      "sample_mov": "tools/motion_graphics/out/sample_vertical_timeline_9x16.mov",
+      "sample_mp4": "tools/motion_graphics/out/sample_vertical_timeline_9x16.mp4",
+      "frame_thumbs": [
+        "tools/motion_graphics/out/thumbs/vertical_timeline_9x16__early.png",
+        "tools/motion_graphics/out/thumbs/vertical_timeline_9x16__mid.png",
+        "tools/motion_graphics/out/thumbs/vertical_timeline_9x16__end.png"
+      ]
     }
   },
-  "deprecated": [
-    "ai_chat_bubble_16x9",
-    "avatar_group_1x1",
-    "dual_brand_1x1",
-    "dual_icon_1x1",
-    "graphic_insight_1x1",
-    "icon_claude_1x1",
-    "message_object_16x9",
-    "message_object_9x16",
-    "pricing_card_1x1",
-    "stat_card_9x16",
-    "ui_evidence_code_editor_16x9",
-    "ui_evidence_discord_9x16",
-    "ui_evidence_kakaotalk_16x9",
-    "ui_evidence_tweet_1x1",
-    "ui_evidence_youtube_comment_9x16"
-  ],
-  "no_sample_yet": [
-    "ai_chat_bubble_16x9",
-    "avatar_group_1x1",
-    "dual_brand_1x1",
-    "dual_icon_1x1",
-    "graphic_insight_1x1",
-    "icon_claude_1x1",
-    "message_object_16x9",
-    "message_object_9x16",
-    "pricing_card_1x1",
-    "stat_card_9x16",
-    "ui_evidence_code_editor_16x9",
-    "ui_evidence_discord_9x16",
-    "ui_evidence_kakaotalk_16x9",
-    "ui_evidence_tweet_1x1",
-    "ui_evidence_youtube_comment_9x16"
-  ]
+  "deprecated": [],
+  "no_sample_yet": []
 }

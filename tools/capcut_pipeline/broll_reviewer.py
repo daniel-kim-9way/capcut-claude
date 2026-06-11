@@ -74,6 +74,12 @@ _SUBSTANCE_TEMPLATE_PREFIXES = (
     "ui_evidence_", "line_chart", "bar_chart", "metric_ring",
     "avatar_group", "animated_beam", "orbiting_circles", "logo_marquee",
     "device_mockup",
+    # 2026-06-05: comparison(A vs B 2열 다항목 대비)은 구조화된 시각 정보 — 단순 글자 카드 아님.
+    "comparison",
+    # 2026-06-11: video-edit-skill 차용 신규 archetype — 글자카드가 아닌 구조화 시각 정보.
+    "split_reveal",       # 전→후 상태 전환 와이프
+    "ratio_dots",         # 비율을 셀 수 있는 점 그리드
+    "vertical_timeline",  # VO 동기 세로 단계 진행선
 )
 
 # 정적 ui_evidence(모션 없음)가 실제 화면 묘사를 담았는지 가르는 최소 길이.
@@ -505,6 +511,41 @@ def _overlay_echoes_narration(overlay_text: str, narration: str) -> bool:
     return best >= 4 and best >= 0.6 * len(ov)
 
 
+# Rule 9 (2026-06-11): non-generic reason 게이트용 — overlay 사유가 진부한 일반구뿐인지 판정.
+# "teach-test"의 결정론 버전: 이 비주얼이 자막으로 못 하는 무엇을 보여주는지 reason이
+# 구체적으로 articulate하게 강제(렌더 전 hard gate → 비싼 Playwright/ffmpeg 낭비 방지).
+_GENERIC_REASON_TOKENS = (
+    "강조를 위해", "강조하려고", "강조", "시각적으로", "시각적", "시각화", "임팩트",
+    "보기 좋게", "보기좋게", "예쁘게", "꾸미", "채우기", "다양성", "변화를", "주목", "눈길", "포인트",
+    "분위기", "느낌", "좋을 것", "있으면 좋",
+)
+_CONCRETE_REASON_RE = re.compile(
+    r'["\'“”‘’]'           # 따옴표(정확한 구절 인용)
+    r'|\d'                                       # 숫자
+    r'|텍스트|숫자|UI|화면|댓글|입력|타이핑|로고|아이콘'
+    r'|비교|대비|체크|리스트|단계|순서|비율|차트|그래프|타임라인|전후|전\s*후|before|after'
+    r'|CTA|행동|증빙|스크린샷|다이어그램|도식'
+)
+
+
+def _reason_is_generic(reason: str) -> bool:
+    """overlay reason이 '강조/시각적/임팩트'류 막연한 일반구뿐이면 True (= reject 대상).
+
+    구체 신호(정확한 구절 인용·숫자·UI/데이터/비교/단계 키워드)가 하나라도 있으면 통과.
+    """
+    r = (reason or "").strip()
+    if len(r) < 10:
+        return True
+    if _CONCRETE_REASON_RE.search(r):
+        return False
+    # 구체 신호 없음 + 일반 토큰 제거 후 거의 안 남으면 generic.
+    stripped = r
+    for tok in _GENERIC_REASON_TOKENS:
+        stripped = stripped.replace(tok, "")
+    stripped = re.sub(r'[\s.…·,~!?()\[\]→\-/]+', "", stripped)
+    return len(stripped) < 6
+
+
 def _pre_filter_plan(plan: dict,
                      scene_narr: dict[int, str] | None = None) -> list[str]:
     """Scan plan for hard rule violations that don't need LLM judgment.
@@ -531,6 +572,17 @@ def _pre_filter_plan(plan: dict,
         decision = sc.get("decision", "")
         if decision not in ("overlay", "dual"):
             continue
+
+        # Rule 9 (2026-06-11): non-generic reason 게이트 (teach-test). overlay 비트의 reason이
+        #   '강조/시각적/임팩트'류 막연한 일반구뿐이면 렌더 전 reject — 이 비주얼이 자막으로
+        #   못 하는 무엇(정확한 한국어 구절·UI·숫자·비교·단계)을 보여주는지 구체 명시 강제.
+        if _reason_is_generic(sc.get("reason", "")):
+            issues.append(
+                f"scene {sidx}: reason이 너무 일반적('{str(sc.get('reason',''))[:30]}') — "
+                f"'강조/시각적/임팩트'류 막연한 사유 금지. 이 비주얼이 emphasis 자막으로 "
+                f"전달 불가능한 무엇(정확한 구절 인용·UI 화면·숫자·전후 비교·단계)을 보여주는지 "
+                f"구체적으로 적을 것 (teach-test)."
+            )
 
         brolls = []
         if decision == "dual":

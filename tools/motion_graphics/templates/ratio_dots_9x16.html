@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>ratio_dots motion (9:16 — 비율 점 그리드)</title>
+<!--
+  ratio_dots_9x16 (2026-06-11) — "비율을 셀 수 있는" 점 그리드 archetype
+  ------------------------------------------------------------------
+  total개 점 중 filled개가 accent로 하나씩 켜지며 비율을 '셀 수 있게' 보여준다.
+  "10명 중 7명", "6만 생각 중 80%" 류 심리 통계 비트용. stat_card(단일숫자)·metric_ring
+  (퍼센트 링)이 못 하는 '개수로 세는' 표현을 채움. 언어 비의존(숫자/점) → 리스킨 부담 최소.
+  - .card 미사용 → card_opacity override 무관. 투명 풀프레임 + text-shadow 가독.
+  - 숫자(headline) 흰색, 점 on=accent 1색 / off=그레이 (규칙: 숫자 흰색·accent 1색).
+  params: total(기본 10), filled(기본 7), headline("10명 중 7명"), caption("번아웃을 겪어요"),
+          accent, duration
+  thumb: 0.35=점 등장, 0.6=채워지는 중, 0.9=headline 안착.
+-->
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="shared_motion.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  body { margin: 0; background: transparent; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 54px; padding: 0 70px; box-sizing: border-box; }
+
+  .dots { display: grid; gap: 26px; justify-content: center; }
+  .dot { width: 84px; height: 84px; border-radius: 50%; background: #3a3a47;
+         box-shadow: inset 0 2px 6px rgba(0,0,0,0.4); }
+  .dot.on { background: var(--accent, #B366FF); box-shadow: 0 0 26px 4px rgba(179,102,255,0.55); }
+
+  .headline { font-size: 88px; font-weight: 900; color: #FFFFFF; letter-spacing: -0.02em;
+              text-align: center; line-height: 1.1; text-shadow: 0 4px 22px rgba(0,0,0,0.7); }
+  .headline .accent { color: var(--accent, #B366FF); }
+  .caption { font-size: 46px; font-weight: 700; color: #C9C3D4; text-align: center; line-height: 1.25;
+             text-shadow: 0 3px 16px rgba(0,0,0,0.7); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="wrap" id="wrap">
+      <div class="dots" id="dots"></div>
+      <div class="headline" id="headline"></div>
+      <div class="caption" id="caption"></div>
+    </div>
+  </div>
+<script>
+(() => {
+  const P = window.__params || {
+    total: 10,
+    filled: 7,
+    headline: "10명 중 7명",
+    caption: "번아웃을 겪고 있어요",
+    accent: "#B366FF",
+    duration: 5.0,
+  };
+  const D = Number(P.duration) || 5.0;
+  const total = Math.max(1, Math.min(100, parseInt(P.total, 10) || 10));
+  const filled = Math.max(0, Math.min(total, parseInt(P.filled, 10) || 0));
+  if (P.accent) document.documentElement.style.setProperty("--accent", P.accent);
+
+  // 그리드 열 수: 10 이하는 한 줄, 그 이상은 정사각 근사
+  const cols = total <= 10 ? total : Math.ceil(Math.sqrt(total));
+  const dotsEl = document.getElementById("dots");
+  // 점 크기를 프레임 폭(가용 ~900px)에 맞게 적응형 — 끝이 잘리지 않게.
+  const GAP = 22;
+  const dotSize = Math.min(84, Math.floor((900 - (cols - 1) * GAP) / cols));
+  dotsEl.style.gap = GAP + "px";
+  dotsEl.style.gridTemplateColumns = "repeat(" + cols + ", " + dotSize + "px)";
+  const dots = [];
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.style.width = dotSize + "px";
+    d.style.height = dotSize + "px";
+    dotsEl.appendChild(d);
+    dots.push(d);
+  }
+  // headline: 숫자 흰색 유지하되, 굵게(전체 흰색). caption.
+  document.getElementById("headline").textContent = String(P.headline || "");
+  document.getElementById("caption").textContent = String(P.caption || "");
+
+  const wrap = document.getElementById("wrap");
+  const headline = document.getElementById("headline");
+  const caption = document.getElementById("caption");
+  const onDots = dots.slice(0, filled);
+
+  gsap.set(wrap, { opacity: 0, y: 18 });
+  gsap.set(dots, { scale: 0, opacity: 0 });
+  gsap.set([headline, caption], { opacity: 0, y: 16 });
+
+  const tl = gsap.timeline({ paused: true });
+  // (1) 등장
+  tl.to(wrap, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.1);
+  // (2) 모든 점 그레이로 팝인 (빠른 stagger)
+  tl.to(dots, { scale: 1, opacity: 1, duration: 0.32, ease: "back.out(1.7)", stagger: 0.025 }, 0.3);
+  // (3) filled 점이 하나씩 accent로 켜짐 (세는 느낌)
+  onDots.forEach((d, i) => {
+    tl.add(() => d.classList.add("on"), 0.95 + i * 0.12);
+    tl.fromTo(d, { scale: 1.0 }, { scale: 1.18, duration: 0.14, yoyo: true, repeat: 1, ease: "power2.out" }, 0.95 + i * 0.12);
+  });
+  // (4) headline 펀치 + caption
+  const headlineAt = 0.95 + filled * 0.12 + 0.25;
+  tl.fromTo(headline, { opacity: 0, y: 22, scale: 0.92 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "back.out(1.5)" }, headlineAt);
+  tl.to(caption, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, headlineAt + 0.25);
+
+  const consumed = headlineAt + 0.7;
+  if (window.MGMotion) window.MGMotion.livingTail(tl, wrap, consumed, D);
+  else tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

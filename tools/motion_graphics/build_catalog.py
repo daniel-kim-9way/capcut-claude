@@ -13,6 +13,8 @@ Pipeline:
   4. Parse params_schema from `window.__params || { ... }` in each HTML.
   5. Mark templates without sample MOV as `user_approved: false`
      (= deprecated, sample was deleted by user → "별로" → use forbidden).
+     Also: FORCE_FORBIDDEN stems are marked false even if a sample MOV exists
+     (permanent blocklist — see TL-01 in CHANGELOG).
   6. Write sample_catalog.json.
 
 The catalog is read by scene_designer.py context to inject sample paths
@@ -36,6 +38,9 @@ Companion files:
 CHANGELOG:
   2026-05-13: Initial — user feedback "맨날 똑같은 것만 써. 샘플 확인하고 있는거 맞아?"
               → catalog forces LLM to Read thumbs before picking. forbidden ingest reject.
+  2026-06-04: TL-01 — FORCE_FORBIDDEN blocklist added. 재빌드 시 sample이 남아 있어도
+              text_hero_aurora/sparkles를 user_approved=False + no_sample_yet로 강제(재승인 차단).
+              + 신규 템플릿(kinetic_type_9x16/device_mockup_9x16) smoke_* alias·scenario hint 추가.
 """
 from __future__ import annotations
 
@@ -56,22 +61,22 @@ CATALOG_PATH = HERE / "sample_catalog.json"
 # Keep additions here when new naming conventions appear in out/.
 SAMPLE_ALIAS = {
     # smoke_* (smoke test renders for newer templates)
-    "smoke_aurora_16x9": "text_hero_aurora_16x9",
     "smoke_beam_16x9": "animated_beam_16x9",
     "smoke_bar_chart_16x9": "bar_chart_16x9",
     "smoke_marquee_16x9": "logo_marquee_16x9",
     "smoke_orbit_1x1": "orbiting_circles_1x1",
-    "smoke_text_sparkles_1x1": "text_hero_sparkles_1x1",
     "smoke_toast_9x16": "toast_notification_9x16",
-    "smoke_code_editor_16x9": "ui_evidence_code_editor_16x9",
+    # 신규 템플릿(2026-06-04 TL-02/TL-03) — smoke_* 네이밍으로 렌더해도 자동 매핑.
+    # (sample_kinetic_type_9x16.* / sample_device_mockup_9x16.*는 직접 경로로도
+    #  자동 인식되므로 alias 불필요. 여기 smoke_* 별칭은 컨벤션 호환용 추가.)
+    "smoke_kinetic_type_9x16": "kinetic_type_9x16",
+    "smoke_device_mockup_9x16": "device_mockup_9x16",
     # regression_* (regression tests pin known-good renders)
     "regression_kt_9x16": "ui_evidence_kakaotalk_9x16",
-    "regression_stat_16x9": "stat_card_16x9",
     # sample_* with shortened stem (ui_evidence_ prefix dropped)
     "sample_claude_code_16x9": "ui_evidence_claude_code_16x9",
     "sample_claude_code_welcome_16x9": "ui_evidence_claude_code_welcome_16x9",
     "sample_discord_16x9": "ui_evidence_discord_16x9",
-    "sample_discord_9x16": "ui_evidence_discord_9x16",
     "sample_finder_16x9": "ui_evidence_finder_16x9",
     "sample_instagram_dm_9x16": "ui_evidence_instagram_dm_9x16",
     "sample_notion_16x9": "ui_evidence_notion_16x9",
@@ -79,42 +84,35 @@ SAMPLE_ALIAS = {
     "sample_slack_9x16": "ui_evidence_slack_9x16",
     "sample_terminal_16x9": "ui_evidence_terminal_16x9",
     "sample_youtube_comment_16x9": "ui_evidence_youtube_comment_16x9",
-    "sample_youtube_comment_9x16": "ui_evidence_youtube_comment_9x16",
     # sample_* with file_ (no ui_evidence prefix on icon_*)
     "sample_file_1x1": "icon_file_1x1",
 }
 
+# TL-01 (2026-06-04): 영구 forbidden 템플릿 — sample MOV가 디스크에 남아 있어도
+# 절대 user_approved 시키지 않는다.
+# 근본원인: 아래 main()에서 sample이 있으면 user_approved=True로 재승인하므로
+# (smoke_aurora_16x9.mov / smoke_text_sparkles_1x1.mov가 out/에 존재),
+# sample_catalog.json을 수동으로 false로 내려도 build_catalog 재실행 시 되살아났다.
+# 이 blocklist는 sample 존재 여부와 무관하게 user_approved=False 강제 + no_sample_yet 편입.
+# (다색 그라데이션/파티클 장식 글자 hero = 단일 accent 디자인 토큰 위반 + emphasis 자막 중복)
+FORCE_FORBIDDEN = set()  # 2026-06-09: forbidden 템플릿 전부 제거됨(아카이브 이동)
+
 # Scenario hints per template (from capcut-broll SKILL.md cheat sheet).
 # These guide the LLM at plan-time: "what kind of narration matches this motion?"
 SCENARIO_HINTS = {
-    "text_hero_aurora_16x9": ["결정적 한 줄 강조", "감정 톤 결론", "6색 aurora gradient sweep"],
-    "text_hero_sparkles_1x1": ["결정적 한 단어", "성공·축하·결정", "파티클 twinkle"],
     "animated_beam_16x9": ["A → B 데이터 흐름", "API 통합", "두 노드 연결 + glowing dot"],
     "logo_marquee_16x9": ["여러 도구·플랫폼 무한 스크롤", "지원 플랫폼 strip"],
     "orbiting_circles_1x1": ["에코시스템", "통합 도구 군집", "중앙 hub + 위성 회전"],
     "bar_chart_16x9": ["카테고리 비교", "월별·분기별·항목별 막대"],
     "line_chart_16x9": ["매출·성장·추세 (시간축)", "SVG line draw + 카운트업"],
-    "stat_card_16x9": ["숫자 before→after 가로 bar"],
     "stat_card_1x1": ["숫자 before→after 정사각 카드"],
-    "stat_card_9x16": ["숫자 before→after 세로 풀스크린"],
     "metric_ring_1x1": ["퍼센트·진행률·달성률 원형 게이지"],
-    "graphic_insight_16x9": ["체크리스트 (3-4 item) 가로 다이어그램", "보라 체크박스 순차 체크"],
-    "graphic_insight_1x1": ["체크리스트 정사각 (3-4 item)"],
-    "avatar_group_1x1": ["N명 사용 중 군집 + 카운트업"],
+    "graphic_insight_9x16": ["체크리스트 (3-4 item) 풀스크린 가독", "큰 글자 + 행별 chip + 보라 체크박스 순차 체크 (comparison 스타일)"],
     "toast_notification_9x16": ["시스템 OS-level 토스트 (앱 메시지 X)"],
-    "ai_chat_bubble_16x9": ["일반 AI 챗 UI (ChatGPT/Claude 챗)"],
     "icon_hero_1x1": ["브랜드 로고 단독 언급 hero"],
-    "icon_claude_1x1": ["Anthropic Claude starburst 로고"],
     "icon_file_1x1": ["파일·PDF·문서 (확장자 강조)"],
-    "dual_icon_1x1": ["두 브랜드 vs 비교 (텍스트 심볼)"],
-    "dual_brand_1x1": ["두 브랜드 진짜 SVG 로고 비교"],
-    "pricing_card_1x1": ["Pricing tier ('Pro 플랜에선')"],
-    "message_object_16x9": ["빈 말풍선 심볼 (카톡/DM 왔어요)"],
-    "message_object_9x16": ["빈 말풍선 심볼 세로"],
-    "ui_evidence_kakaotalk_16x9": ["카톡 (16:9 특수)"],
     "ui_evidence_kakaotalk_9x16": ["카톡 모바일 native (9:16)"],
     "ui_evidence_youtube_comment_16x9": ["YouTube 댓글 + CTA (데스크톱)"],
-    "ui_evidence_youtube_comment_9x16": ["YouTube 댓글 + CTA (모바일)"],
     "ui_evidence_instagram_dm_9x16": ["Instagram DM 모바일"],
     "ui_evidence_notion_16x9": ["Notion 문서 / 회의록"],
     "ui_evidence_terminal_16x9": ["Terminal / CLI 명령어 시연"],
@@ -122,11 +120,15 @@ SCENARIO_HINTS = {
     "ui_evidence_slack_16x9": ["Slack 워크스페이스 (데스크톱)"],
     "ui_evidence_slack_9x16": ["Slack 모바일"],
     "ui_evidence_discord_16x9": ["Discord 서버 (다크 테마)"],
-    "ui_evidence_discord_9x16": ["Discord 모바일"],
     "ui_evidence_claude_code_16x9": ["Claude Code 작업 세션 (Thinking + tool calls)"],
     "ui_evidence_claude_code_welcome_16x9": ["Claude Code 시작 화면"],
-    "ui_evidence_code_editor_16x9": ["VSCode/Cursor IDE 코드 시연"],
-    "ui_evidence_tweet_1x1": ["X (Twitter) testimonial / 인용"],
+    # 신규 템플릿(2026-06-04 TL-02/TL-03) — 등록 시 LLM 플랜 힌트.
+    "kinetic_type_9x16": ["감정·주장 풀스크린 키네틱 타이포", "어절 mask-reveal + accent 형광펜 (세로)"],
+    "device_mockup_9x16": ["실제 스크린샷을 폰/브라우저 프레임에 삽입", "Ken Burns 리빌 (세로, UI 스크린샷 한정·실사 사진 금지)"],
+    # 신규 archetype(2026-06-11, video-edit-skill 차용). **정사각 카드를 상단 band에 그림**(얼굴 안 가림).
+    "split_reveal_9x16": ["전(前)→후(後) 상태 전환 와이프", "정사각 카드 상단 배치, 디바이더가 쓸고 지나가며 BEFORE→AFTER ('능력부족→강점자리','혼란→정돈')"],
+    "vertical_timeline_9x16": ["VO 동기 세로 단계 진행선", "정사각 카드 상단 배치, '인식→수용→행동'·'1→2→3단계' — 레일 head 도달 순간 dot 켜짐(얼굴 안 가림)"],
+    "ratio_dots_9x16": ["비율을 셀 수 있는 점 그리드", "'10명 중 7명','6만 생각 중 80%' 류 심리 통계 — filled개 점이 accent로 켜짐"],
 }
 
 
@@ -303,7 +305,8 @@ def main() -> int:
             "frame_thumbs": [],
         }
 
-        sample = samples.get(stem)
+        # TL-01: forbidden stem은 sample이 있어도 무시 → 재승인 차단(근본 fix).
+        sample = None if stem in FORCE_FORBIDDEN else samples.get(stem)
         if sample:
             entry["user_approved"] = True
             if sample["mov"]:
@@ -331,9 +334,9 @@ def main() -> int:
             entry["frame_thumbs"] = thumbs
             catalog["templates"][stem] = entry
         else:
-            # No sample MOV → either user deleted it (deprecated) or never made yet.
-            # We can't distinguish here, but we mark as "no_sample_yet" and let
-            # the LLM treat both equally: forbidden until sample exists.
+            # No sample MOV → either user deleted it (deprecated), never made yet,
+            # or FORCE_FORBIDDEN(sample은 있으나 영구 금지). 셋 다 동일 취급:
+            # user_approved=False + no_sample_yet 편입 → LLM 메뉴에서 forbidden.
             entry["user_approved"] = False
             catalog["templates"][stem] = entry
             catalog["no_sample_yet"].append(stem)

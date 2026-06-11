@@ -2,9 +2,17 @@
  *
  * 사용:
  *   <link rel="stylesheet" href="shared.css">
+ *   <script src="shared_motion.js"></script>   ← 모션 어휘(livingHold/choreographedExit)
  *
  * 파일 URL 프로토콜(file://)에서 relative path stylesheet link 로드 가능.
  * 신규 템플릿에서 사용 권장. 기존 12개 템플릿은 inline 유지 (마이그레이션 비용 회피).
+ *
+ * ⭐ 연출 어휘(2026-06-11): 카드가 등장 후 정적 hold→hard-cut 되던 "pop-and-freeze"를
+ *    방지하려면 `shared_motion.js`의 window.MGMotion 헬퍼를 GSAP 타임라인에 추가한다:
+ *      MGMotion.livingHold(tl, el, at, dur)      — hold 중 미세 drift+scale(안 얼게)
+ *      MGMotion.choreographedExit(tl, el, at)    — 끝에서 dissolve-forward 퇴장
+ *      MGMotion.livingTail(tl, el, consumed, D)  — 둘을 합친 tail 헬퍼(정적 tail 대체)
+ *    (CSS @keyframes는 render_motion progress 스텝과 동기 안 됨 → JS 타임라인 헬퍼만 사용.)
  */
 
 /* ========== Fonts: 로컬 Pretendard 전체 로드 ========== */
@@ -55,6 +63,20 @@
   --accent-success: #27C93F;
   --accent-warning: #FFBD2E;
   --accent-error: #FF5F56;
+
+  /* Accent palette (DT-01, 2026-06-04) — 영상당 1색 고정용 토큰 세트.
+   * ⛔ 위 --accent-purple(#B366FF)는 11개 기존 템플릿이 참조하므로 절대 변경 금지.
+   * 아래는 ADDITIVE: 주제 톤별로 영상당 accent 1색을 선택할 수 있게 한다 (다색 혼용 금지 원칙 유지).
+   *   --accent-blue  → 테크/툴/생산성
+   *   --accent-green → 성장/지표 상승
+   *   --accent-amber → 경고/주목/금융
+   * 신규 템플릿은 var(--accent)를 쓰고, 영상별로 1색을 주입하려면 JS에서
+   *   document.documentElement.style.setProperty('--accent', P.accent)
+   * 로 --accent 값을 덮어쓴다. 미주입 시 기본값 --accent-purple로 현재 동작 보존. */
+  --accent-blue:  #0070F3;
+  --accent-green: #2AF598;
+  --accent-amber: #FFB020;
+  --accent: var(--accent-purple);
 
   /* Brand — messaging platforms */
   --brand-kakaotalk: #FAE100;
@@ -194,6 +216,14 @@ html, body {
   --dur-base: 0.5s;
   --dur-slow: 0.9s;
   --dur-hero: 1.6s;
+
+  /* Stagger tokens (DT-02, 2026-06-04) — 순차 등장 간격 기준값.
+   * 결정론 모션(동시 등장=anti-pattern) 회피용. CSS animation-delay 및 GSAP stagger
+   * 양쪽에서 같은 리듬을 쓰도록 단일 출처(seconds). GSAP는 stagger:0.06 식으로 숫자만 참조.
+   * additive — 기존 템플릿은 영향 없음. */
+  --stagger-fast: 0.03s;  /* 어절/음절 mask-reveal, 빠른 리듬 */
+  --stagger-base: 0.06s;  /* 일반 리스트/아이템 순차 등장 */
+  --stagger-slow: 0.13s;  /* 단어 단위 강조, 느린 리듬 */
 }
 
 /* ============================================================
@@ -243,6 +273,35 @@ html, body {
   --lh-snug:  1.2;
   --lh-base:  1.4;
   --lh-loose: 1.6;
+}
+
+/* ============================================================
+ * Negative-space & refinement tokens (DT-02, 2026-06-04)
+ * ------------------------------------------------------------
+ * '세련됨을 결정하는' 여백/구분선/하이라이트 토큰을 단일 출처로.
+ * linear 이징/여백 부족 같은 anti-pattern을 토큰 사용으로 회피.
+ * 전부 ADDITIVE — 기존 템플릿은 인라인 값을 유지하므로 무영향.
+ * (참고: --pad-card / --pad-card-lg 는 위 첫 :root 블록에 이미 존재 — 중복 정의 안 함)
+ * ============================================================ */
+:root {
+  /* Negative-space 스페이싱 스케일 (4px 베이스, 1080/1920 캔버스 기준) */
+  --space-xs:  8px;
+  --space-sm:  16px;
+  --space-md:  28px;
+  --space-lg:  48px;
+  --space-xl:  80px;
+  --space-2xl: 120px;
+
+  /* 요소 간 기본 간격 (flex/grid gap에 직접 사용) */
+  --gap-elem: 28px;
+
+  /* Hairline border — 절제된 카드 구분선 (저대비) */
+  --border-hairline: 1px solid rgba(255, 255, 255, 0.08);
+  --border-hairline-dark: 1px solid rgba(0, 0, 0, 0.08);
+
+  /* Highlight pen — accent 형광펜 하이라이트 (텍스트는 흰색 유지, 배경만 accent 22%).
+   * color-mix로 현재 --accent 값에서 자동 파생 → 영상별 accent 1색과 일관. */
+  --highlight-pen: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* ============================================================

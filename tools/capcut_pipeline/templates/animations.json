@@ -20,5 +20,51 @@
       "request_id": "2026042111310785835594E82D02D99E3A"
     },
     "default_duration_us": 1400000
+  },
+  "zoom_in": {
+    "display_name": "줌 1",
+    "_note": "비디오 클립용 in-animation (PROMPTER_20260608_172322 드래프트에서 추출). 첫 클립 등장 강조. panel/material_type=video.",
+    "animation_entry": {
+      "id": "6740868384637850120",
+      "type": "in",
+      "start": 0,
+      "duration": 500000,
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/6740868384637850120/6444aa1a1706f02003f9c56c4c0757b3",
+      "platform": "all",
+      "resource_id": "6740868384637850120",
+      "third_resource_id": "6740868384637850120",
+      "source_platform": 1,
+      "name": "줌 1",
+      "category_id": "in_fav",
+      "category_name": "in_fav",
+      "panel": "video",
+      "material_type": "video",
+      "anim_adjust_params": null,
+      "request_id": ""
+    },
+    "default_duration_us": 500000
+  },
+  "side_slide": {
+    "display_name": "사이드 슬라이드",
+    "_note": "비디오 클립용 in-animation (PROMPTER_20260608_173233 드래프트에서 추출). 첫 클립 등장 강조. panel/material_type=video.",
+    "animation_entry": {
+      "id": "7241878375516606978",
+      "type": "in",
+      "start": 0,
+      "duration": 400000,
+      "path": "C:/Users/kbjhh/AppData/Local/CapCut/User Data/Cache/effect/7241878375516606978/c67d95e820752346af44e2cb515c0115",
+      "platform": "all",
+      "resource_id": "7241878375516606978",
+      "third_resource_id": "7241878375516606978",
+      "source_platform": 1,
+      "name": "사이드 슬라이드",
+      "category_id": "in_fav",
+      "category_name": "in_fav",
+      "panel": "video",
+      "material_type": "video",
+      "anim_adjust_params": null,
+      "request_id": ""
+    },
+    "default_duration_us": 400000
   }
 }

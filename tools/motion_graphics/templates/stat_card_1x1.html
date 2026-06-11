@@ -8,17 +8,18 @@
 <style>
   html, body { width: 1080px; height: 1080px; }
 
+  /* 카드 = viewport 꽉 채움 (프레임=카드, 위아래 투명여백 제거). 둥근 모서리 밖만 블루 크로마 → 투명 */
   .card {
-    width: 880px;
-    height: 880px;
+    width: 1080px;
+    height: 1080px;
     background: var(--bg-dark);
-    border-radius: var(--radius-lg);
+    border-radius: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 60px;
-    padding: 60px;
+    gap: 70px;
+    padding: 100px;
     box-sizing: border-box;
     opacity: 0;
     transform: scale(0.92);
@@ -45,9 +46,10 @@
     line-height: 1;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.03em;
+    white-space: nowrap;
   }
   .number.top { font-size: 200px; }
-  .number.bottom { font-size: 240px; position: relative; }
+  .number.bottom { font-size: 220px; position: relative; }
 
   .arrow {
     font-size: 100px;
@@ -97,7 +99,7 @@
   };
 
   document.getElementById("num-bottom-text").textContent =
-    P.top_number + (P.bottom_suffix || "");
+    "0" + (P.bottom_suffix || "");
 
   const tl = gsap.timeline({ paused: true });
   const D = P.duration;
@@ -117,7 +119,7 @@
   tl.to("#arrow", { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.9);
   tl.to("#row-bottom", { opacity: 1, duration: 0.3, ease: "power2.out" }, 2.2);
 
-  const bottomObj = { v: P.top_number };
+  const bottomObj = { v: 0 };
   tl.to(bottomObj, {
     v: P.bottom_number, duration: 1.2, ease: "power3.inOut",
     onUpdate: () => {

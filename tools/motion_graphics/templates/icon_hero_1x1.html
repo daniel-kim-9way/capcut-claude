@@ -5,6 +5,8 @@
 <title>icon_hero motion (1:1 square — brand logo pop-in + glow)</title>
 <link rel="stylesheet" href="shared.css" />
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<!-- TL-04: 진짜 브랜드 SVG 로고 레지스트리 (window.BRAND_LOGOS). 미등록 brand는 이니셜 폴백 -->
+<script src="brand_logos.js"></script>
 <style>
   html, body { width: 1080px; height: 1080px; }
   .stage {
@@ -43,6 +45,15 @@
     letter-spacing: -0.04em;
     font-size: 280px;
   }
+  /* TL-04: 진짜 브랜드 SVG 로고 컨테이너 (이니셜 .icon-symbol 대체) */
+  .icon-glyph {
+    width: 280px;
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-glyph svg { width: 100%; height: 100%; }
 
   .label {
     font-size: 56px;
@@ -59,6 +70,7 @@
     <div class="icon-card" id="card">
       <div class="glow-ring" id="glow"></div>
       <div class="icon-symbol" id="symbol">N</div>
+      <div class="icon-glyph" id="glyph" style="display:none"></div>
     </div>
     <div class="label" id="label">노션</div>
   </div>
@@ -75,12 +87,30 @@
 
   const card = document.getElementById("card");
   const sym = document.getElementById("symbol");
+  const glyph = document.getElementById("glyph");
   const label = document.getElementById("label");
 
-  card.style.background = P.hex_color || "#000000";
-  sym.textContent = P.symbol || "N";
-  sym.style.color = P.symbol_color || "#FFFFFF";
-  label.textContent = P.label || "";
+  // TL-04: P.brand가 레지스트리에 있으면 진짜 SVG, 없으면 기존 이니셜 글자 폴백
+  const getBrand = window.BRAND_LOGOS_GET || (() => null);
+  const brand = P.brand ? getBrand(P.brand) : null;
+
+  if (brand) {
+    // 진짜 SVG 로고: 카드 배경은 brand bg(명시 hex_color 우선), 글리프 색은 brand fg(symbol_color override 가능)
+    card.style.background = P.hex_color || brand.bg || "#000000";
+    glyph.innerHTML = brand.svg(P.symbol_color || brand.fg);
+    glyph.style.display = "flex";
+    sym.style.display = "none";
+    if (!P.label) label.textContent = brand.name;
+    else label.textContent = P.label;
+  } else {
+    // 폴백: 기존 이니셜 글자 타일 (하위호환 — 동작 동일)
+    card.style.background = P.hex_color || "#000000";
+    sym.textContent = P.symbol || "N";
+    sym.style.color = P.symbol_color || "#FFFFFF";
+    glyph.style.display = "none";
+    sym.style.display = "block";
+    label.textContent = P.label || "";
+  }
 
   const tl = gsap.timeline({ paused: true });
   const D = P.duration;

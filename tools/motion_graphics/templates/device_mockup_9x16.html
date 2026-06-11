@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>device_mockup (9:16) — 실제 스크린샷을 phone/browser 프레임에 Ken Burns 합성</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* 프레임 뒤 radial accent glow — 12~20% opacity, 단일 accent 토큰 사용 */
+  .glow {
+    position: absolute;
+    width: 1100px; height: 1100px;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--accent, var(--accent-purple)) 0%, transparent 62%);
+    opacity: 0;
+    filter: blur(20px);
+    pointer-events: none;
+  }
+
+  /* .card 클래스 — render_motion.py transparent 모드가 .card 배경을 반투명으로 override(card_opacity 0.62) */
+  .card {
+    position: relative;
+    background: transparent;       /* 프레임 자체가 시각 요소이므로 카드 배경은 투명 (transparent 모드 호환) */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 56px;
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  /* ===== Phone frame (instagram_dm 베젤 + 노치 재사용) ===== */
+  .device-phone {
+    width: 760px;
+    height: 1560px;
+    background: #000000;
+    border-radius: 64px;
+    padding: 16px;                 /* 베젤 두께 */
+    box-sizing: border-box;
+    /* Stripe soft shadow */
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    position: relative;
+  }
+  .device-phone .screen {
+    width: 100%; height: 100%;
+    border-radius: 50px;
+    overflow: hidden;
+    position: relative;
+    background: #1A1A1C;
+  }
+  /* 노치(dynamic island 풍) */
+  .device-phone .notch {
+    position: absolute;
+    top: 26px; left: 50%;
+    transform: translateX(-50%);
+    width: 200px; height: 34px;
+    background: #000000;
+    border-radius: 18px;
+    z-index: 3;
+  }
+
+  /* ===== Browser frame (code_editor 신호등 타이틀바 재사용) ===== */
+  .device-browser {
+    width: 940px;
+    height: 1180px;
+    background: #1E1E1E;
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    position: relative;
+  }
+  .device-browser .title-bar {
+    height: 64px;
+    background: #323233;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .device-browser .tl-btn { width: 18px; height: 18px; border-radius: 50%; }
+  .device-browser .tl-red    { background: #FF5F56; }
+  .device-browser .tl-yellow { background: #FFBD2E; }
+  .device-browser .tl-green  { background: #27C93F; }
+  .device-browser .url-pill {
+    flex: 1;
+    margin-left: 16px;
+    height: 38px;
+    background: #1E1E1E;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    padding: 0 22px;
+    color: #B0B0B0;
+    font-size: 22px;
+    font-weight: 500;
+    font-family: "Pretendard", sans-serif;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .device-browser .screen {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #FFFFFF;
+  }
+
+  /* ===== Screenshot image — Ken Burns clip-path reveal ===== */
+  .shot-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* clip-path inset 리빌: 초기엔 위에서 살짝 가린 상태 */
+    clip-path: inset(0 0 0 0);
+  }
+  .shot {
+    position: absolute;
+    top: 50%; left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    transform: translate(-50%, -50%) scale(1.0);
+    transform-origin: center center;
+    will-change: transform;
+  }
+  /* image_path 미지정 시 placeholder 회색 박스 (단독 렌더 보장) */
+  .shot.placeholder {
+    background: repeating-linear-gradient(
+      135deg,
+      #2A2A2E 0px, #2A2A2E 24px,
+      #232327 24px, #232327 48px
+    );
+  }
+
+  /* ===== Caption ===== */
+  .caption {
+    max-width: 880px;
+    text-align: center;
+    color: var(--text-primary);
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .caption:empty { display: none; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="glow" id="glow"></div>
+    <div class="card" id="card">
+      <!-- 디바이스 프레임은 JS가 device 파라미터에 따라 주입 -->
+      <div id="device-slot"></div>
+      <div class="caption" id="caption"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    device: "phone",
+    image_path: "",            // file:// 절대경로. 비면 placeholder.
+    caption: "실제 화면은 이렇게 보입니다",
+    camera_move: "in",         // "in"(zoom-in) | "out"(zoom-out) | "pan"(세로 팬)
+    duration: 5.0,
+  };
+
+  const device = (P.device === "browser") ? "browser" : "phone";
+  const imagePath = P.image_path || "";
+  const caption = P.caption || "";
+  const move = P.camera_move || "in";
+  const D = (typeof P.duration === "number" && P.duration > 0) ? P.duration : 5.0;
+
+  // ---- 디바이스 프레임 마크업 빌드 ----
+  const slot = document.getElementById("device-slot");
+
+  // 스크린샷 또는 placeholder img/박스
+  const shotMarkup = imagePath
+    ? `<img class="shot" id="shot" src="${imagePath}" alt="" />`
+    : `<div class="shot placeholder" id="shot"></div>`;
+
+  if (device === "browser") {
+    const urlText = P.url || "app.example.com";
+    slot.innerHTML = `
+      <div class="device-browser">
+        <div class="title-bar">
+          <div class="tl-btn tl-red"></div>
+          <div class="tl-btn tl-yellow"></div>
+          <div class="tl-btn tl-green"></div>
+          <div class="url-pill">${urlText}</div>
+        </div>
+        <div class="screen">
+          <div class="shot-wrap" id="shot-wrap">${shotMarkup}</div>
+        </div>
+      </div>`;
+  } else {
+    slot.innerHTML = `
+      <div class="device-phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="shot-wrap" id="shot-wrap">${shotMarkup}</div>
+        </div>
+      </div>`;
+  }
+
+  const capEl = document.getElementById("caption");
+  capEl.textContent = caption;
+
+  // ---- GSAP timeline only via window.__tl (no JS timers, no CSS animations) ----
+  const tl = gsap.timeline({ paused: true });
+  const shot = document.getElementById("shot");
+  const shotWrap = document.getElementById("shot-wrap");
+
+  // 1) glow + card 등장
+  tl.to("#glow", { opacity: 0.16, duration: 0.8, ease: "power2.out" }, 0);
+  tl.to("#card", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0);
+
+  // 2) clip-path inset 스크롤 리빌 (화면이 위→아래로 펼쳐짐)
+  gsap.set(shotWrap, { clipPath: "inset(0 0 100% 0)" });
+  tl.to(shotWrap, {
+    clipPath: "inset(0 0 0% 0)",
+    duration: 0.9,
+    ease: "power3.out",
+  }, 0.25);
+
+  // 3) Ken Burns — camera_move 별 scale/translate 안무
+  //    'in'  : 1.0 → 1.08 (천천히 확대)
+  //    'out' : 1.08 → 1.0 (천천히 축소)
+  //    'pan' : scale 1.06 고정 + 세로 미세 팬
+  const kbStart = 0.4;
+  const kbDur = Math.max(0.1, D - kbStart - 0.1);
+  if (move === "out") {
+    gsap.set(shot, { scale: 1.08, x: "-50%", y: "-50%" });
+    tl.to(shot, { scale: 1.0, duration: kbDur, ease: "none" }, kbStart);
+  } else if (move === "pan") {
+    gsap.set(shot, { scale: 1.06, x: "-50%", yPercent: 0 });
+    tl.to(shot, { yPercent: -6, duration: kbDur, ease: "none" }, kbStart);
+  } else {
+    // default: in
+    gsap.set(shot, { scale: 1.0, x: "-50%", y: "-50%" });
+    tl.to(shot, { scale: 1.08, duration: kbDur, ease: "none" }, kbStart);
+  }
+
+  // 4) caption 등장
+  if (caption) {
+    tl.to("#caption", { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.9);
+  }
+
+  // 5) tail hold — 타임라인 길이를 duration에 정확히 맞춤
+  const consumed = kbStart + kbDur;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

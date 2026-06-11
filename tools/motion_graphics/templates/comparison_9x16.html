@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>comparison motion (9:16 — A vs B 2열 대비)</title>
+<!--
+  comparison_9x16 (2026-06-05) — "A vs B 다항목 대비" archetype
+  ------------------------------------------------------------------
+  레퍼런스: Broke Habit ↔ Rich Habit 류 2열 비교 (제목 + 항목 + 중앙 구분선).
+  기존 dual_icon(로고 2개)·stat_card(숫자 before→after)로 못 하던 "개념 대비 리스트"를 채움.
+  - 좌(부정/before): 살짝 dim + 붉은 accent. 우(긍정/after): 흰색 + 초록 accent.
+  - 각 열 첫 항목은 outline pill, 나머지는 plain text.
+  - 중앙 세로 hairline + 중앙 노드. 투명 오버레이(카드 배경 없음, text-shadow로 가독).
+  - 모션: 구분선 draw → 좌 제목/항목 stagger → 우 제목/항목 stagger → tail hold.
+  thumb 안무: progress 0.2=좌 안착, 0.5=양쪽 안착, 0.9=tail 정적.
+  window.__tl GSAP timeline만 (setInterval/@keyframes 금지).
+  params: left_title, right_title, left_items[], right_items[], duration
+-->
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  body { margin: 0; background: transparent; }
+
+  .stage {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    /* 콘텐츠를 세로 중앙 band에 — 얼굴(상단)·자막(하단) 회피 */
+  }
+
+  .grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 1080px;
+    column-gap: 0;
+    padding: 0 64px;
+    box-sizing: border-box;
+  }
+
+  /* 중앙 세로 구분선 + 노드 */
+  .divider {
+    position: absolute;
+    left: 50%; top: 6%; bottom: 6%;
+    width: 2px;
+    transform: translateX(-1px) scaleY(0);
+    transform-origin: top center;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.45) 18%,
+      rgba(255,255,255,0.45) 82%,
+      rgba(255,255,255,0) 100%);
+  }
+  .divider-node {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 64px; height: 64px;
+    margin: -32px 0 0 -32px;
+    border: 2px solid rgba(255,255,255,0.55);
+    border-radius: 50%;
+    opacity: 0; transform: scale(0.5);
+    background: rgba(0,0,0,0.18);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .divider-node::after {
+    content: "VS";
+    font-size: 22px; font-weight: 800; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.85);
+  }
+
+  .col { display: flex; flex-direction: column; align-items: center; padding: 0 38px; }
+
+  .col-title {
+    font-size: 60px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    text-align: center;
+    margin-bottom: 44px;
+    text-shadow: 0 3px 18px rgba(0,0,0,0.78), 0 1px 3px rgba(0,0,0,0.9);
+    opacity: 0; transform: translateY(18px);
+    position: relative;
+    padding-bottom: 18px;
+  }
+  /* 제목 아래 얇은 accent 라인 (좌 붉은 / 우 초록) */
+  .col-title::after {
+    content: ""; position: absolute; left: 22%; right: 22%; bottom: 0;
+    height: 5px; border-radius: 3px; transform: scaleX(0); transform-origin: center;
+  }
+  .left  .col-title { color: #E6E2E2; }
+  .right .col-title { color: #FFFFFF; }
+  .left  .col-title::after { background: #FF6B6B; }
+  .right .col-title::after { background: #2AF598; }
+
+  .item {
+    font-size: 46px;
+    font-weight: 600;
+    line-height: 1.28;
+    text-align: center;
+    letter-spacing: -0.01em;
+    margin-bottom: 30px;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.72), 0 1px 2px rgba(0,0,0,0.85);
+    opacity: 0; transform: translateY(16px);
+  }
+  .left  .item { color: #BFBABA; }   /* 부정: 살짝 dim */
+  .right .item { color: #FFFFFF; }   /* 긍정: 선명 */
+
+  /* 각 열 첫 항목 = outline pill */
+  .item.pill {
+    border: 2.5px solid rgba(255,255,255,0.32);
+    border-radius: 999px;
+    padding: 20px 34px;
+    font-weight: 700;
+    backdrop-filter: blur(2px);
+    background: rgba(0,0,0,0.16);
+  }
+  .left  .item.pill { border-color: rgba(255,107,107,0.6); color: #F0E9E9; }
+  .right .item.pill { border-color: rgba(42,245,152,0.7); color: #FFFFFF; }
+  .item:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="grid" id="grid">
+      <div class="divider" id="divider"></div>
+      <div class="divider-node" id="node"></div>
+      <div class="col left"  id="col-left"></div>
+      <div class="col right" id="col-right"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // window.__params 미주입 시 데모 기본값 — 단독 렌더 가능
+  const P = window.__params || {
+    left_title: "소비하는 사람",
+    right_title: "만드는 사람",
+    left_items: ["AI를 쓰기만 함", "결과물 없음", "흔해짐"],
+    right_items: ["AI로 만들어 봄", "검증된 결과물", "희소해짐"],
+    duration: 6.0,
+  };
+
+  const D = Number(P.duration) || 6.0;
+  const leftTitle = String(P.left_title || "");
+  const rightTitle = String(P.right_title || "");
+  const leftItems = (P.left_items || []).map((s) => String(s || "")).filter(Boolean).slice(0, 4);
+  const rightItems = (P.right_items || []).map((s) => String(s || "")).filter(Boolean).slice(0, 4);
+
+  function buildCol(elId, title, items) {
+    const col = document.getElementById(elId);
+    const t = document.createElement("div");
+    t.className = "col-title";
+    t.textContent = title;
+    col.appendChild(t);
+    items.forEach((text, i) => {
+      const it = document.createElement("div");
+      it.className = i === 0 ? "item pill" : "item";
+      it.textContent = text;
+      col.appendChild(it);
+    });
+  }
+  buildCol("col-left", leftTitle, leftItems);
+  buildCol("col-right", rightTitle, rightItems);
+
+  const leftTitleEl = document.querySelector("#col-left .col-title");
+  const rightTitleEl = document.querySelector("#col-right .col-title");
+  const leftItemEls = document.querySelectorAll("#col-left .item");
+  const rightItemEls = document.querySelectorAll("#col-right .item");
+  const leftUlineTarget = leftTitleEl;   // ::after scaleX via class toggle 아래에서 gsap set
+  // ::after는 gsap 직접 제어 불가 → 클래스로 토글
+  const style = document.createElement("style");
+  style.textContent = ".col-title.ul-on::after{transform:scaleX(1);transition:transform .5s cubic-bezier(.22,1,.36,1);}";
+  document.head.appendChild(style);
+
+  // ----- GSAP timeline (paused; render_motion.py가 progress로 프레임 스텝) -----
+  const tl = gsap.timeline({ paused: true });
+
+  // 모션을 앞 ~45%에 몰아 0.5/0.9 stop이 '양쪽 안착'에 떨어지게.
+  const STAG = 0.16;
+
+  // (1) 중앙 구분선 draw + 노드 pop
+  tl.to("#divider", { scaleY: 1, duration: 0.5, ease: "power2.out" }, 0.0);
+  tl.to("#node", { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.7)" }, 0.25);
+
+  // (2) 좌(부정) 제목 + 항목 stagger
+  const ls = 0.45;
+  tl.to(leftTitleEl, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, ls);
+  tl.call(() => leftTitleEl.classList.add("ul-on"), [], ls + 0.2);
+  leftItemEls.forEach((el, i) => {
+    tl.to(el, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, ls + 0.35 + i * STAG);
+  });
+  const leftEnd = ls + 0.35 + Math.max(0, leftItemEls.length - 1) * STAG + 0.4;
+
+  // (3) 우(긍정) 제목 + 항목 stagger (좌 직후)
+  const rs = leftEnd + 0.1;
+  tl.to(rightTitleEl, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, rs);
+  tl.call(() => rightTitleEl.classList.add("ul-on"), [], rs + 0.2);
+  rightItemEls.forEach((el, i) => {
+    tl.to(el, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, rs + 0.35 + i * STAG);
+  });
+  const consumed = rs + 0.35 + Math.max(0, rightItemEls.length - 1) * STAG + 0.4;
+
+  // (4) tail hold
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

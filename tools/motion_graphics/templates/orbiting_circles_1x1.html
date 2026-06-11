@@ -5,6 +5,8 @@
 <title>orbiting_circles motion (1:1 — central hub + N satellite icons rotating)</title>
 <link rel="stylesheet" href="shared.css" />
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<!-- TL-04: 진짜 브랜드 SVG 로고 레지스트리 (window.BRAND_LOGOS). 미등록 brand는 이니셜 폴백 -->
+<script src="brand_logos.js"></script>
 <style>
   html, body { width: 1080px; height: 1080px; }
 
@@ -84,6 +86,11 @@
     opacity: 0;
     transform-origin: center;
   }
+  /* TL-04: 위성/허브 내부 진짜 브랜드 SVG 로고 컨테이너 (이니셜 글자 대체) */
+  .glyph { display: flex; align-items: center; justify-content: center; }
+  .satellite .glyph { width: 78px; height: 78px; }
+  .hub .glyph { width: 150px; height: 150px; }
+  .glyph svg { width: 100%; height: 100%; }
 
   .label {
     position: absolute;
@@ -143,12 +150,33 @@
     duration: 6.0,
   };
 
+  // TL-04: brand key가 레지스트리에 있으면 진짜 SVG, 없으면 기존 이니셜 글자 폴백
+  const getBrand = window.BRAND_LOGOS_GET || (() => null);
+
+  // brand 적용 헬퍼: el(컨테이너)에 brand SVG glyph 주입(bg 설정),
+  // 미등록이면 기존 글자 텍스트(symbol)로 폴백. 하위호환 유지.
+  function applyBrand(el, item, fallbackSymbol) {
+    const brand = item && item.brand ? getBrand(item.brand) : null;
+    if (brand) {
+      el.style.background = (item && item.bg) || brand.bg || el.style.background;
+      const g = document.createElement("div");
+      g.className = "glyph";
+      g.innerHTML = brand.svg((item && item.color) || brand.fg);
+      el.textContent = "";
+      el.appendChild(g);
+      return true;
+    }
+    // 폴백: 기존 동작 — 글자 + 색
+    el.textContent = (item && item.symbol) || fallbackSymbol || "";
+    if (item && item.bg) el.style.background = item.bg;
+    if (item && item.color) el.style.color = item.color;
+    return false;
+  }
+
   // Hub
   const hub = document.getElementById("hub");
   if (P.hub) {
-    hub.textContent = P.hub.symbol || "●";
-    if (P.hub.bg) hub.style.background = P.hub.bg;
-    if (P.hub.color) hub.style.color = P.hub.color;
+    applyBrand(hub, P.hub, "●");
   }
   document.getElementById("label").textContent = P.label || "";
 
@@ -163,9 +191,11 @@
       // Sat is 130px, so offset by half to center on (cx, cy)
       s.style.left = (cx - 65) + "px";
       s.style.top = (cy - 65) + "px";
+      // 기본값(폴백): 흰 배경/어두운 글자 — applyBrand이 brand 있으면 덮어씀
       s.style.background = it.bg || "#FFFFFF";
       s.style.color = it.color || "#191919";
-      s.textContent = it.symbol || "";
+      // TL-04: brand 등록 시 진짜 SVG, 아니면 기존 이니셜 글자
+      applyBrand(s, it, "");
       container.appendChild(s);
     });
   }

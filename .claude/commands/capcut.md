@@ -10,7 +10,7 @@
 
 1. 각 단계 시작에서 **`⛔ STOP. Call Read('...') NOW.`** 지시를 무시하지 말 것. 해당 스킬 SKILL.md를 Read 도구로 **직접 호출**한 후에만 진행. "기억에 있다"고 건너뛰지 말 것.
 2. 각 단계 **완료 게이트**는 `verify_step.py` 로 **머신 검증**. `- [ ]` 마음속 체크 금지.
-3. **FX 단계(Step 5)는 특히 빠지기 쉬움** — 6개 키(filter·bgm·sfx·scene_effects·title_animation·outro_animation) 모두 포함. 코드가 exit 5로 막아준다.
+3. **FX 단계(Step 5)는 특히 빠지기 쉬움** — 5개 키(filter·bgm·sfx·scene_effects·**intro_video_animation**) 모두 포함 + `speed` 1.2. 코드가 exit 5로 막아준다. 현재 기본: title/outro typewriter·flash_warm 제거, 인트로는 첫 클립만 **사이드 슬라이드(side_slide)**, 전역 1.2배속.
 
 과거 사고 기록:
 - PROMPTER_20260417_161003에서 filter 누락 → 코드 게이트(`--verify-completeness`)로 차단됨
@@ -24,7 +24,7 @@
 |---|---|
 | `tools/capcut_pipeline/verify_step.py <N> --name X` | 각 단계 머신 검증 (1~6 + 2.5) |
 | `tools/capcut_pipeline/extract_fx_candidates.py --draft X --top-k 6 --out fx_plan.json` | fx_plan.json 자동 생성 (Step 5 추측 제거) |
-| `tools/capcut_pipeline/capcut_fx_patcher.py ... --verify-completeness` | fx_plan 6-key 사전 검증 |
+| `tools/capcut_pipeline/capcut_fx_patcher.py ... --verify-completeness` | fx_plan 5-key 사전 검증 |
 | `tools/capcut_pipeline/check_registry_drift.py` | preset 이름 SoT ↔ SKILL.md 일관성 체크 |
 
 ---
@@ -129,7 +129,7 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/ng_cutter.py \
 - `output/<name>/subs/transcript_wrapped.raw.srt` 백업 → Claude가 맞춤법·띄어쓰기 교정 → `transcript_wrapped.srt` 재저장
 - **불변 조건**: 타임스탬프 변경 금지, cue 개수 변경 금지
 
-⚠️ **wrap(줄바꿈) 의미 단위도 육안 점검 필수** — 맞춤법만 보지 말 것. `"~하고 싶은"` / `"마음,"` 처럼 명사구·조사구가 부자연스럽게 쪼개지면 **재wrap** 필요 (SKILL.md "look-ahead 보류" + "Step 2 교정 시 wrap 점검" 섹션 참조). 재wrap은 cue 수를 바꾸므로 불변 게이트가 아니라 **재처리 체인**(재wrap → 교정 재적용 → raw.srt 재생성 → 드래프트 재빌드 → overlay/fx `--mode clean` 재패치)을 탄다. 과거 사고: 욕구 나열 영상에서 `"신중하게 하고 싶은" / "마음,"` 조기 분리로 사용자 컴플레인("자막 끊기는게 이상하잖아").
+⚠️ **wrap(줄바꿈) 의미 단위도 육안 점검 필수** — 맞춤법만 보지 말 것. `"~하고 싶은"` / `"마음,"` 처럼 명사구·조사구가 부자연스럽게 쪼개지면 **재wrap** 필요 (SKILL.md "look-ahead 보류" + "Step 2 교정 시 wrap 점검" 섹션 참조). 재wrap은 cue 수를 바꾸므로 불변 게이트가 아니라 **재처리 체인**(재wrap → 교정 재적용 → raw.srt 재생성 → 드래프트 재빌드 → overlay/fx `--mode clean` 재패치)을 탄다.
 
 **게이트** (머신 검증):
 ```bash
@@ -169,7 +169,39 @@ B-roll 만들기 전 반드시 자문:
 
 → **하나라도 NO면 `decision: text_only`. B-roll 제작 금지.**
 
-**6-type 시스템** (2026-04-21 — 실사 photo + 순수 텍스트 나열 + 단일 숫자 이미지 전면 금지): `icon_hero` / `ui_evidence` / `message_object` / `stat_card` / `dual_icon` / `graphic_insight`. `split_stack` · `symbol_moment` · `number_hero` **폐기**.
+**6-type 시스템** (실사 photo + 순수 텍스트 나열 + 단일 숫자 이미지 전면 금지): `icon_hero` / `ui_evidence` / `message_object` / `stat_card` / `dual_icon` / `graphic_insight`. `split_stack` · `symbol_moment` · `number_hero` **폐기**.
+
+---
+
+#### ⛔⛔ v2 반-클리셰 (코드 게이트로 강제 — "뻔한 글자 카드" 방지)
+
+> `broll_reviewer._pre_filter_plan`이 **SDK 없이도 결정론적으로 강제**(위반 시 ingest 차단). 자세한 건 SKILL.md 최상단 "반-클리셰 원칙" + [[feedback_broll_v2_capabilities]].
+
+1. **글자 카드 = 자막 중복 = 뻔함**: 무지개 그라데이션·파티클 장식 글자카드는 **만들지 않는다**(자막 중복 + 단일 accent 위반). 절제된 풀스크린 글자 강조가 필요하면 `kinetic_type_9x16`(어절 mask-reveal + 형광펜) 사용. 그 외 단순 글자 강조는 `decision: text_only` + emphasis.
+2. **같은 type/template 2회 반복 금지** — 영상 내 단조 차단(reject).
+3. **검은 카드만 금지** — overlay 2개+면 **최소 1개는 실제 시각 정보**(`ui_evidence`(claude_code/terminal/notion 등) / 데이터 차트(`line_chart`/`bar_chart`/`metric_ring`/`avatar_group`) / 신규 `device_mockup_9x16`). 전부 글자/체크박스 카드면 reject.
+4. **기술·AI·툴·빌딩 주제 → `ui_evidence` 1순위** (추상 글자 카드 대신 실제 작업 화면). 실측: stat_card(데이터) + ui_evidence_claude_code(실제 빌딩) 2개가 글자 카드 3개보다 강력.
+5. **영상 간 반복 금지** — `tools/capcut_pipeline/.broll_usage_log.json` ledger(ingest 자동 기록). 직전 영상과 template 조합 완전 겹치면 reject.
+
+**신규 archetype (v2 승인):**
+- `comparison_9x16` ⭐ — **A vs B 다항목 대비**(소비 vs 빌더, Broke vs Rich 류). 2열(좌 부정/우 긍정) 제목+항목(첫 항목 pill)+중앙 VS 노드, 순차 등장, 투명 오버레이. params: `left_title`, `right_title`, `left_items[]`, `right_items[]`, `duration`. dual_icon(로고뿐)·stat_card(숫자뿐)로 못 하던 개념 대비 리스트. substance로 인정. 풀프레임 takeover(overlay_h_ratio ~0.9 + position_y center 권장).
+- `kinetic_type_9x16` — 풀스크린 키네틱 타이포(어절 mask-reveal + accent 형광펜 밑줄). params: `lines[]`, `accent_words[]`, `duration`. aurora/sparkles 대체재.
+- `device_mockup_9x16` — 실제 스크린샷을 폰/브라우저 프레임에 삽입(Ken Burns). params: `device`("phone"|"browser"), `image_path`(file:// 절대경로), `caption`, `duration`. **실사사진 reject**, image_path 없으면 graphic_insight/text_only 폴백. ui_evidence(손으로 그린 재현 UI) vs device_mockup(실제 캡처) 구분.
+- `split_reveal_9x16` ⭐ — 전→후 와이프(좌 before / 우 after가 와이프로 전환). before→after 상태 변화 시각화. 상세는 capcut-broll SKILL.
+- `ratio_dots_9x16` — 비율을 점 격자로 ("10명 중 7명" → 채운 점 7 / 빈 점 3). 분수·비율 강조. 상세는 capcut-broll SKILL.
+- `vertical_timeline_9x16` — 세로 단계 타임라인 ("인식→수용→행동" 류 순차 단계). 프로세스·여정. 상세는 capcut-broll SKILL.
+- `brand_logos.js` — 진짜 SVG 로고 레지스트리. `logo_marquee`/`icon_hero`/`orbiting_circles`가 `brand` key로 소비(미등록은 이니셜 폴백).
+- **모션 공통 런타임**: 모든 motion template은 `shared.css` + `shared_motion.js`(`livingHold`=카드 정지 구간에도 미세 호흡으로 "얼지" 않게, `choreographedExit`=부드러운 퇴장) 사용.
+
+**🎯 구도 규칙 (9:16 토킹헤드 — 얼굴/자막 침범 금지):** overlay는 상단(얼굴 위) 기본. `position_y` 슬롯(`top`/`center`/`lower`)으로 씬별 지정 — `center`는 얼굴 위라 비권장(코드가 경고+상단 push).
+
+⛔ **타이틀·강조(emphasis) 자막은 상단(`top`) 기본 — 가운데 금지.** 타이틀 기본 position도 `top`(overlay_patcher 기본값). emphasis는 `top`이 원칙이고, 같은 시점에 상단 overlay가 있으면 `start_offset_sec`로 **시점을 분리**(겹치면 lower로 잠깐 내릴 수 있으나 center 금지). 단순 시점차(동시 노출 X)면 `lower` 말고 `top`으로 — 중간에 자막 뜨는 인상 방지.
+
+⛔ **`top` 슬롯 y값 = 0.55** (overlay_patcher `emphasis_position_y` 기본값). 0.7은 인스타 **계정명/팔로우 버튼(상단 ~10%)에 가려짐**; 0.55가 계정명 아래 안전 마진. 타이틀(2줄)은 더 내려 y≈0.5.
+
+⛔ **시작(타이틀 등장) 구간엔 emphasis 자막을 동시에 띄우지 말 것.** 오프닝은 **타이틀 + 첫 클립 사이드 슬라이드**만. scene 0 emphasis는 타이틀이 사라진 뒤(`start_offset_sec`를 타이틀 duration 이후로) 시작. 타이틀과 emphasis가 화면에 겹치면 안 됨.
+
+---
 
 **하위 단계 (3-A ~ 3-D 순차)**:
 
@@ -179,18 +211,18 @@ B-roll 만들기 전 반드시 자문:
 
 **Claude가 수행할 체크리스트**:
 
-0. ⭐ **sample 카탈로그 빌드 확인** (2026-05-13 신설):
+0. ⭐ **sample 카탈로그 빌드 확인**:
    ```bash
    PYTHONIOENCODING=utf-8 python tools/motion_graphics/build_catalog.py
    ```
-   → `sample_catalog.json` + `out/thumbs/` 75개 PNG 생성. 이미 최신이면 단순 idempotent.
+   → `sample_catalog.json` + `out/thumbs/` PNG 생성 (전부 user_approved, forbidden 0개). 이미 최신이면 idempotent. ⚠️ **신규 template을 추가했으면** playwright 있는 절대경로 인터프리터(`$LOCALAPPDATA/Programs/Python/Python313/python.exe`)로 sample MOV 렌더 후 build_catalog 재실행해야 user_approved 반영 (안 하면 stale).
 1. **Read `.claude/skills/capcut-broll/SKILL.md`** — 6 타입(icon_hero/stat_card/message_object/dual_icon/ui_evidence/graphic_insight), 근본 원칙, 블루 크로마, **"Motion 카탈로그 시각 검증" 섹션 필수 정독**.
 2. **Read** 다음 소스 4개:
-   - `temp/<name>/broll_designer_context.md` — Motion 카탈로그(user_approved 25개 + forbidden 15개) + 씬별 narration이 자동 주입됨. 정독 의무.
+   - `temp/<name>/broll_designer_context.md` — Motion 카탈로그(user_approved 전체, forbidden 없음) + 씬별 narration이 자동 주입됨. 정독 의무.
    - `output/<name>/subs/transcript.json` — word-level 타이밍
    - `temp/<name>/scenes.json` — 씬 경계
    - `$LOCALAPPDATA/CapCut/User Data/Projects/com.lveditor.draft/<name>/draft_content.json` — 기존 emphasis 텍스트 + 타이밍
-2.5. ⭐ **motion 후보 시각 확인** (HARD 의무, 2026-05-13 신설):
+2.5. ⭐ **motion 후보 시각 확인** (HARD 의무):
    - overlay 후보 결정 전 각 motion의 frame_thumbs PNG 3장을 Read 도구로 직접 확인:
      ```
      tools/motion_graphics/out/thumbs/<stem>__early.png
@@ -198,7 +230,7 @@ B-roll 만들기 전 반드시 자문:
      tools/motion_graphics/out/thumbs/<stem>__end.png
      ```
    - cheat sheet 텍스트 설명만 보고 결정 금지 (과거 실패 사례: forbidden _9x16 youtube_comment 선택, 같은 type 반복, params 일반화 short cut)
-   - 카탈로그 `params_schema`의 정확한 키 이름 확인 (template마다 `phrase`/`title`/`items` 다름)
+   - ⛔ **params는 `sample_catalog.json`의 `params_schema`만 믿지 말 것** — catalog schema가 불완전/부정확할 수 있음 (예: youtube_comment는 catalog상 `comments_count`만 보이지만 실제론 `comments[]` 배열을 받고, beam `left/right`는 문자열이 아니라 `{symbol,label,bg,color}` 객체). **반드시 `tools/motion_graphics/templates/<stem>.html`의 `window.__params = {...}` 기본값 블록을 Read해서 정확한 키·타입(문자열/객체/배열) 확인** 후 motion_params 작성.
 3. **씬별 판단 루프** (각 씬에 대해):
    - 나레이션이 담긴 구체적 브랜드/데이터/UI/수치비교/CTA를 명시하는가?
    - emphasis 텍스트만으로 전달 가능한가? → YES면 `text_only`
@@ -215,18 +247,26 @@ B-roll 만들기 전 반드시 자문:
        {
          "scene_idx": N,
          "decision": "overlay" | "text_only" | "skip",
-         "reason": "...",
+         "reason": "...",              // ⛔ 구체적 시각 근거 必. "강조"/"시각적" 같은 막연한 사유는 렌더 전 자동 reject
          "broll": {                     // overlay일 때만
            "type": "stat_card" | "ui_evidence" | ...,
            "brand_key": "kakaotalk",    // optional
            "src_hint": "...",           // 정적 이미지용 Gemini 프롬프트
+           "anchor_phrase": "...",      // optional. 화자가 실제로 말하는 구절 → overlay 타이밍이 실측 단어 경계로 자동 스냅(speech-anchor)
 
            // --- motion (Hyperframes-inspired) ---  (optional; 선택 시 아래 필드)
            "motion": true,              // true면 정적 PNG 대신 GSAP MOV 생성
-           "motion_template": "stat_card_16x9",  // sample_catalog.json의 user_approved stem만 (forbidden ingest reject)
+           "motion_template": "stat_card_1x1",  // sample_catalog.json의 user_approved stem만. B-roll은 1:1 또는 9:16 풀프레임 선호(16:9 중립카드 지양)
            "motion_params": { ... },    // 각 template의 params_schema 키만 (phrase/title/items 다름)
-           "sample_reviewed": true,     // ⭐ HARD: frame_thumbs 3장 Read 후 true (2026-05-13)
-           "sample_reviewed_notes": "early=..., mid=..., end=..., chose because ..."
+           "sample_reviewed": true,     // ⭐ HARD: frame_thumbs 3장 Read 후 true
+           "sample_reviewed_notes": "early=..., mid=..., end=...",  // ⛔ early/mid/end 키 3개 必(비공백·distinct). 누락 시 VQ-03 strict reject
+
+           // --- v2 구도/타이밍 (optional, default=기존동작) ---
+           "position_y": "top",         // "top"(얼굴 위·기본) | "center"(비권장) | "lower"(자막 위). 자유 float 금지
+           "overlay_h_ratio": 0.55,     // 가로 점유 비율(기존 ratio)
+           "start_offset_sec": 0.0,     // overlay 등장 시점(씬 시작 기준). 긴 씬은 늦게 등장
+           "display_dur_sec": null,     // 표시 길이(null=motion intrinsic). 박제 방지
+           "justification": "..."       // text_hero류 글자 카드를 굳이 쓸 때만 필수(없으면 reject)
          },
          "emphasis": { ... }
        }
@@ -234,12 +274,12 @@ B-roll 만들기 전 반드시 자문:
      "title": { ... }
    }
    ```
-   - **overlay 하한선 (HARD)**: 60-120초 영상 = **3-5개 overlay 필수**. 2개 이하 = plan 부실 → 즉시 재작성.
-   - **emphasis 하한선 (HARD)**: skip이 아닌 **모든 씬에 `emphasis` 객체 필수**. `text_only` = 이미지 skip, emphasis는 유지. 빈 text_only = 즉시 reject (MEMORY: `feedback_capcut_emphasis_per_scene`).
-   - **자가 카운트 게이트** (plan Write 직후): (a) overlay decision ≥ 3? (b) emphasis 카운트 = (전체 씬 - skip 씬)? 둘 다 YES여야 다음 단계. 컴플레인 케이스(PROMPTER_20260417_162141 v1: 9씬에 emphasis 1개·overlay 2개) 재발 금지.
-   - ⭐ **Motion 우선 원칙 (2026-04-25)**: overlay가 필요한 모든 씬에서 **motion을 1순위로 검토**. SKILL.md 시나리오→variant cheat sheet에 매핑되는 motion이 있으면 무조건 motion 사용 (정적 PNG보다 시청 지속률 높음, 덜 지루함).
-   - 🎯 **27개 variant 중 베스트 선택 — LLM이 전체 맥락 종합 평가** (3-step):
-     - **Step A. 후보 추리기**: cheat sheet + 27개 카탈로그에서 시나리오에 매핑되는 모든 motion 후보 나열
+   - **품질 > 개수 (v2)**: 억지로 overlay 3-5개 채우지 말 것. **substance 있는(실제 UI/데이터) overlay 2개가 뻔한 글자 카드 3개보다 낫다.** 단 overlay가 2개+면 그 중 최소 1개는 실제 시각 정보여야 함(반-클리셰 규칙 3). 스크립트에 데이터/UI/빌딩 소재가 1개뿐이면 overlay 1개 + 나머지 text_only도 정상.
+   - **emphasis 하한선 (HARD)**: skip이 아닌 **모든 씬에 `emphasis` 객체 필수**. `text_only` = 이미지 skip, emphasis는 유지. 빈 text_only = 즉시 reject (MEMORY: `feedback_capcut_emphasis_per_scene`). 긴 씬(20초+)은 `start_offset_sec`로 emphasis 다중 배치.
+   - **자가 카운트 게이트** (plan Write 직후): (a) overlay 중 substance(실제 UI/데이터) ≥ 1? (b) 같은 type/template 반복 없음? (c) text_hero(aurora/sparkles) 안 씀? (d) emphasis 카운트 = (전체 씬 - skip 씬)? 모두 YES여야 다음 단계.
+   - ⭐ **Motion 우선 원칙**: overlay가 필요한 모든 씬에서 **motion을 1순위로 검토**. SKILL.md 시나리오→variant cheat sheet에 매핑되는 motion이 있으면 무조건 motion 사용 (정적 PNG보다 시청 지속률 높음, 덜 지루함).
+   - 🎯 **승인된 variant 중 베스트 선택 — LLM이 전체 맥락 종합 평가** (3-step):
+     - **Step A. 후보 추리기**: cheat sheet + user_approved 카탈로그에서 시나리오에 매핑되는 모든 motion 후보 나열
      - **Step B. 베스트 선택 판단 기준** (4축 종합):
        - ① **지루하지 않음** — 카운트업·타이핑·순차 등장 등 시간축 임팩트 큰 것 선호
        - ② **상황 적합도** — 나레이션 의도와 가장 자연스럽게 맞는 것
@@ -249,7 +289,7 @@ B-roll 만들기 전 반드시 자문:
        - **옵션 1: 신규 motion template 제안** (재사용 가치 있을 때) → `motion_proposal: { needed: true, suggested_stem: "...", rationale: "...", fallback_if_not_built: "png" }`
        - **옵션 2: 정적 PNG 직행** (1회성·매우 특수) → `broll.motion: false` + `src_hint`
        - 판단 기준: **재사용 가치 + 시간축 가치 + 명확한 UI/데이터** → 신규 제안. **1회성·추상·실사** → PNG.
-   - **motion template aspect 선택**: 2-step 판단 (SKILL.md 참조) — ① type 본질 aspect (KakaoTalk=9:16 native 등) ② 영상 × 연출 의도. 현재 27개 variant + 시나리오→variant cheat sheet + 신규 제안 절차는 SKILL.md "⭐ Motion 우선 원칙" 섹션 참고.
+   - **motion template aspect 선택**: 2-step 판단 (SKILL.md 참조) — ① type 본질 aspect (KakaoTalk=9:16 native 등) ② 영상 × 연출 의도. 승인 variant + 시나리오→variant cheat sheet + 신규 제안 절차는 SKILL.md "⭐ Motion 우선 원칙" 섹션 참고.
 6. **자가 검증**: 내 계획이 SKILL.md의 "⛔ 근본 원칙"을 위반하지 않는가? 6 타입만 썼는가? src_hint가 "책상+펜+노트" 같은 실사 photo를 유도하지 않는가? motion 선택이 정말 시간축 연출이 필요한 경우인가?
 
 **판단 우선순위 (가장 강력한 후보)**:
@@ -272,14 +312,23 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/broll_reviewer.py \
   --out        temp/<name>/broll_review.json
 ```
 
-**자동 pre-filter** (SDK 호출 전 즉시 reject):
-- `type: split_stack` / `number_hero` / `symbol_moment` (폐기)
-- 순수 텍스트 나열 이미지 (src_hint 키워드 기반)
-- 단일 숫자 이미지 (`^\d+%?$` 패턴)
+**자동 pre-filter** (SDK 없이도 **항상 도는** 결정론 게이트 — v2 강화):
+- 폐기 type (`split_stack`/`number_hero`/`symbol_moment`), 순수 텍스트 나열, 단일 숫자
+- 무지개/파티클 장식 글자카드 패턴 (만들지 않음 — kinetic_type/text_only로)
+- **같은 type/template 2회 반복**
+- **overlay 2개+인데 substance(실제 UI/데이터) 0개** (검은 카드만)
+- **자막-overlay 텍스트 중복**(VQ-02)
+- **영상 간 반복**(ledger, 직전 N영상과 완전 겹침)
 
-**PASS 기준**: 각 페르소나 overall ≥ 4.0, **visual_only_value ≥ 4** (NEW — 텍스트로 대체 불가능한가), rejects 빈 상태, aggregate ≥ 4.0.
+**PASS 기준**: 각 페르소나 overall ≥ 4.0, **visual_only_value ≥ 4**, rejects 빈 상태, aggregate ≥ 4.0.
 
-→ exit `0` (PASS)만 다음 단계. `2` (REJECT)면 `broll_review.json` 읽고 plan 수정 후 재실행.
+⚠️ **SDK 미설치 시** reviewer는 placeholder(pass=false)로 빠진다. 이때 **세션 Claude가 직접 3-persona 평가**해 `broll_review.json`을 `mode:"in_session_claude_review"` + `persona_scores`(3인 이상, 각 overall + 비공백 distinct notes) + `pass:true`로 작성 ([[feedback_capcut_proofread_agent]]). ⛔ pre_filter가 reject(critical_issues 있음)면 그건 먼저 plan 수정. SI-04 게이트가 빈 self-pass(persona_scores 누락)를 차단.
+
+**strict 게이트** (scene_designer ingest, 기본 ON, `OMC_BROLL_STRICT=0`으로 점진 강등):
+- VQ-03: motion broll의 `sample_reviewed_notes`에 early/mid/end 키 3개(비공백·distinct) 필수.
+- SI-04: `broll_review.json` mode = sdk/orchestrator_personas/in_session_claude_review만 통과.
+
+→ exit `0` (PASS)만 다음 단계. `2` (REJECT)면 `broll_review.json`/stderr 읽고 plan 수정 후 재실행.
 
 #### 3-C. scene_designer ingest + generate-images (자동 chroma_remove 포함)
 
@@ -302,6 +351,24 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/scene_designer.py generate-i
 
 ⚠️ `broll_review.json` 없거나 `"pass": false`면 ingest exit 2. 긴급시 `--skip-review` (권장 X).
 ⚠️ plan에 `split_stack`·`symbol_moment`·`number_hero` 있으면 에러 + migration 메시지.
+
+#### 3-C.5 ⭐ 렌더된 MOV **실제 시각 검증** (HARD 의무 — overlay_patcher 전 필수)
+
+⛔ **frame_thumbs(sample) 검증은 template 기본 params 결과일 뿐**, 내가 넣은 커스텀 motion_params로 렌더된 실제 MOV와 다르다. ingest가 생성한 `output/<name>/broll_motion/scene_NNN_motion.mp4`에서 **프레임을 직접 추출해 Read로 시각 확인**한다.
+
+```bash
+# 각 motion MOV의 mid/end 프레임 추출 (n은 fps×초; 30fps면 mid≈90, end≈150)
+for f in output/<name>/broll_motion/scene_*_motion.mp4; do
+  b=$(basename "$f" .mp4)
+  ffmpeg -y -i "$f" -vf "select=eq(n\,135)" -vframes 1 "temp/<name>/_check/${b}_end.png" 2>/dev/null
+done
+```
+
+→ 추출한 PNG를 **Read로 직접 본다**. 체크:
+- 텍스트/라벨이 내가 의도한 값으로 나왔는가? (fallback 기본값 "A"/"B", 빈 카드, 깨진 숫자면 params 오류 — HTML `__params` 다시 확인 후 plan 수정 → 기존 MOV 삭제 → ingest 재실행)
+- 9:16 영상에 카드가 인물/자막 안 가리는가? (가리면 `card_opacity` 낮추거나 위치 조정)
+
+⚠️ sample thumbnail만 보고 진행하면 깨진 채 패치된다(예: beam이 "A/B" 노드 + 빈 라벨, youtube_comment가 "1200" + 빈 댓글). **커스텀 렌더 실제 확인 없이 overlay_patcher 진행 금지.**
 
 #### 3-D. overlay_patcher 적용 (CapCut 완전 종료 후)
 
@@ -330,6 +397,8 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 3 --name <nam
 - `output/<name>/deliverables/title.txt` — 20자 이하 후킹 제목 (Python `len()` 기준)
 - `output/<name>/deliverables/ig_caption.txt` — 400~600자 (Python `len()` 기준), 격식체+공감체, 5 해시태그
 
+⚡ **캡션 첫 줄 = 후킹 (가장 중요)**: 인스타/페북은 캡션 **첫 1줄(30~40자)만 노출**하고 나머지는 `… 더 보기`로 접는다. 첫 줄이 캡션 전체 클릭률을 결정하므로 **궁금증 갭(진짜 이유 따로 있다 / 사실은 ~가 아니다)·통념 반전·강한 공감**으로 시작해 "더 보기를 누르고 싶게" 만들 것. 답/결론은 첫 줄에서 감추고 본문에서 풀기. 영상 훅·제목과 다른 변주(복붙 금지). 첫 문장 뒤 빈 줄. (상세 규칙·예시는 capcut-deliverables SKILL §0 첫 줄 후킹)
+
 **게이트** (머신 검증, 한글 UTF-8 안전):
 ```bash
 PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 4 --name <name>
@@ -344,6 +413,8 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 4 --name <nam
 
 ⛔ **STOP. Call `Read('.claude/skills/capcut-fx/SKILL.md')` NOW. 전체 읽기. 놓침 방지.**
 
+**`extract_fx_candidates.py`가 자동 처리** (LLM 신경 안 써도 됨): (a) **마지막 CTA는 효과음 없이 조용히**(closer-suppression — 시각 zoom은 유지), (b) **BGM 폴백이 영상명 기반 결정론**(재실행 안정; LLM이 톤으로 덮어쓰는 건 그대로 우선), (c) **컷 seam에 micro zoom 자동**(cover-the-cut), (d) **SFX 0.05s 중복 자동 제거**.
+
 권장 flow:
 
 **5-A. fx_plan.json 자동 생성** (⚡ 추측 제거):
@@ -353,10 +424,10 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/extract_fx_candidates.py \
   --top-k 12 \
   --out temp/<name>/fx_plan.json
 ```
-→ emphasis 자동 선별 + 6개 필수 키 완성된 fx_plan.json 생성. 사용자가 타이밍 미세조정 가능.
+→ emphasis 자동 선별 + 5개 필수 키(+intro_video_animation, speed 1.2) 완성된 fx_plan.json 생성. 사용자가 타이밍 미세조정 가능.
 
 **⛔ 자동 생성 후 LLM 자가 검증 (HARD)**:
-- ⭐ **BGM 정책 (2026-04-27 변경)**: 로컬 5트랙 중 영상 톤에 맞는 1개를 `path` 모드로 직접 주입. `volume_db = -25`. CapCut 라이브러리 preset 사용 금지.
+- ⭐ **BGM 정책**: 로컬 5트랙 중 영상 톤에 맞는 1개를 `path` 모드로 직접 주입. `volume_db = -25`. CapCut 라이브러리 preset 사용 금지. (LLM이 안 고르면 영상명 기반 결정론 폴백.)
   ```jsonc
   "bgm": {
     "path": "BGM/Sunlit Cup.mp3",      // 5개 중 영상 톤에 맞춰 LLM이 선택
@@ -381,13 +452,15 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/extract_fx_candidates.py \
   - 댓글/구독/DM/CTA → `ui_notify`
   - vs/대비/→ 비교 → `mouse_click`
   - 키워드 pop / 숫자 강조 → `ui_notify`
-  - 0초 title typewriter → `keyboard_typing`
-- **scene_effects 시점**: B-roll start와 정렬. 의미적으로:
-  - `stat_card` reveal → `flash_warm` 1.87s
+  - 0초 인트로 → `keyboard_typing` (선택; 타자기 애니메이션은 제거됐으니 사이드 슬라이드와 어울리는 짧은 pop이면 충분)
+- ⭐ **`intro_video_animation`**: 첫 클립에만 사이드 슬라이드 인 효과 `{scene_idx:0, preset:"side_slide", duration_us:400000}`. extract가 자동 포함(기본 preset=side_slide). 시작 강조는 **타자기/플래시가 아니라 이 사이드 슬라이드**가 담당. (모든 클립 아님 — 첫 클립만. zoom_in도 선택 가능하나 기본은 side_slide)
+- ⛔ **scene_effects에서 `flash_warm` 시작 효과 제거**. 이제 lens_zoom 중심:
   - `graphic_insight` reveal → `math_rush` 1.5s
-  - `dual_icon`·`message_object` reveal → `lens_zoom` 2.0s
-  - CTA scene (last) → `flash_warm` 1.5s
-- 컴플레인 케이스 (PROMPTER_20260417_162141 v1: SFX 3개 모두 0-3s에 클러스터, BGM -18dB) 재발 금지.
+  - `stat_card`·`dual_icon`·`message_object` reveal → `lens_zoom`
+  - 주요 emphasis 각각 → `lens_zoom`
+  - (시작 0초 flash_warm 넣지 말 것 — intro_video_animation 사이드 슬라이드가 대체)
+- ⭐ **타이틀·강조(emphasis) 자막은 상단(top) 기본** (가운데 금지). 타이틀이 뜨는 시작 구간엔 emphasis 자막을 **동시에 띄우지 말 것** (오프닝 = 타이틀 + 첫 클립 사이드 슬라이드만).
+- 재발 금지: SFX를 0-3s에 전부 클러스터링하거나 BGM을 -18dB로 두는 것(voice 마스킹).
 
 **5-B. 완결성 검증**:
 ```bash
@@ -412,12 +485,48 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/capcut_fx_patcher.py \
 ```bash
 PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py 5 --name <name>
 ```
-→ `[step5] PASS: title_anim=OK, outro_anim=OK, sfx=N, scene_effects=M, bgm=OK, filter=OK` 모두 존재.
+→ `[step5] PASS: fx_log_keys=5, filter_effects=1, audios=..., video_effects=...` (필수 키 = intro_video_animation·sfx·scene_effects·bgm·filter).
 
 **코드 3중 보호**:
-1. `extract_fx_candidates.py` 기본으로 6개 키 생성
+1. `extract_fx_candidates.py` 기본으로 5개 키 + speed 1.2 + intro_video_animation 생성
 2. `--verify-completeness` exit 5 로 거부
 3. `verify_step.py 5` 로 패치 후 검증
+
+**⭐ 전역 배속 (기본 1.2)**: `extract_fx_candidates.py`가 fx_plan에 `"speed": 1.2`를 자동 포함한다. fx_patcher가 **마지막에** 모든 트랙(영상·자막·B-roll·SFX·BGM)을 `1/speed`로 압축 = CapCut "전체 선택 → 1.2배속". 재인코딩 불필요(드래프트 레벨, 피치 약간 상승). 배속 원치 않으면 fx_plan의 `speed`를 `1.0`으로. 패치 로그에 `[ok] global_speed x1.2 → ...` 확인. (상세 → capcut-fx SKILL.md § speed)
+
+---
+
+### Step 5.5 — ⭐ 영상 첫 제목 최종 확정 (전체 편집본 보고 3안 추천 → 사용자 선택)
+
+⛔ **FX까지 끝난 "완성된 편집본"을 기준으로** 영상 맨 앞 타이틀 카드 문구를 최종 확정한다. Step 3에서 넣은 타이틀은 **임시(working)** — 전체 흐름(자막·B-roll·FX·톤)을 다 본 뒤가 가장 강한 훅을 뽑기 좋다.
+
+**절차**:
+1. **완성된 편집본 파악** — 전체 자막(`transcript_wrapped.srt`)·B-roll·emphasis·톤을 종합해 영상의 핵심 메시지/후킹 포인트를 정리. (가능하면 CapCut 재생 또는 scene별 narration 재확인)
+2. **진짜 후킹되는 제목 3안 작성** — 서로 결이 다른 후킹 축으로:
+   - ① 의문형 ("AI가 내 일을 뺏을까?") ② 반전/대조 ("버티는 사람 vs 만드는 사람") ③ 구체 숫자/약속 ("AI로 역량 3배 키우는 법") ④ 공포→해소 ("불안한 자리에서 만드는 자리로")
+   - 각 안: `text`(≤14자 권장, 스크롤 방어) + `accent_words` 1개 + 한 줄 후킹 의도
+   - 금지: 클릭베이트(`충격!`/`대박!`), 반말 명령형(`~해라`), 비후킹 모호문구. 첫 씬 메시지와 일치(낚시 금지).
+3. **`AskUserQuestion`으로 3안 제시** → 사용자가 1개 선택(또는 직접 입력).
+4. **선택안을 맨 앞 타이틀 카드에 반영**:
+   - `temp/<name>/_claude_broll_plan.json`의 `title.text`/`accent_words` 수정
+   - `temp/<name>/broll_plan.json`의 `title` 도 동일하게 수정 (ingest 산출물)
+   - overlay 재패치(clean) → 타이틀 카드 텍스트 갱신:
+     ```bash
+     PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/overlay_patcher.py \
+       --draft "$LOCALAPPDATA/CapCut/User Data/Projects/com.lveditor.draft/<name>/draft_content.json" \
+       --plan  "temp/<name>/broll_plan.json" --mode clean
+     ```
+   - 이어서 fx 재패치(clean) — `title_animation`(typewriter)이 새 타이틀 텍스트에 다시 걸리도록:
+     ```bash
+     PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/capcut_fx_patcher.py \
+       --draft "$LOCALAPPDATA/CapCut/User Data/Projects/com.lveditor.draft/<name>/draft_content.json" \
+       --plan  "temp/<name>/fx_plan.json" --mode clean
+     ```
+   - 재패치 후 `verify_step.py 3` + `5` 재검증 PASS 확인.
+
+⚠️ **title.txt(Step 4 메타 제목)와는 별개**(이건 인스타/검색용). 단 톤은 일관되게. 필요하면 선택한 첫 제목에 맞춰 title.txt도 함께 손볼 수 있음.
+
+> 왜 Step 5 다음인가: 편집 전(Step 3)엔 완성 톤을 모른 채 제목을 찍어야 해서 약한 훅이 나오기 쉬움. **전체 편집본을 보고 3안→선택**하면 1회 왕복으로 첫 3초 스크롤 방어력이 크게 오른다.
 
 ---
 
@@ -454,7 +563,7 @@ PYTHONIOENCODING=utf-8 python tools/capcut_pipeline/verify_step.py all --name <n
 | Step 2 끝나고 바로 Step 3로 넘어감 | **Step 2.5 재빌드 필수** (draft mtime > SRT mtime) |
 | `wc -c > 400`으로 캡션 길이 검증 | **`verify_step.py 4`** (Python `len()` 기준) |
 | fx_plan.json 수동 타이밍 추측 | **`extract_fx_candidates.py`** 로 자동 생성 |
-| fx_plan.json에 filter/bgm 누락 | 6개 키 모두 포함 + `--verify-completeness` |
+| fx_plan.json에 filter/bgm 누락 | 5개 키(intro_video_animation·sfx·scene_effects·bgm·filter) 모두 포함 + `--verify-completeness` |
 | `--fast-cut` 사용 | 기본 (재인코딩) — 자막 싱크 유지 |
 | CapCut 열린 채 patcher 실행 | `tasklist` 로 먼저 확인 |
 | `--skip-draft --no-auto-broll` 조합 | `--skip-draft`만 |
@@ -483,7 +592,7 @@ Output:  output/<name>/
   ├─ subs/transcript*.srt / transcript.json / transcript_wrapped.raw.srt (백업)
   └─ deliverables/
       ├─ title.txt, ig_caption.txt             ⭐ Step 4
-      ├─ script.txt                            ⭐ Step 6
+      ├─ script.txt                            ⭐ Step 6 (선택)
       └─ final.mp4                             ⭐ Step 6
 Draft:   %LocalAppData%\CapCut\User Data\Projects\com.lveditor.draft\<name>\
   ├─ draft_content.json
@@ -527,7 +636,7 @@ GOOGLE_AI_API_KEY=...       # Gemini B-roll 이미지 생성 (Step 3)
 - [ ] Step 2.5: 드래프트 재빌드 → `verify_step.py 2_5`
 - [ ] Step 3: B-roll plan + 이미지 + overlay 패치 + emphasis track 존재 → `verify_step.py 3`
 - [ ] Step 4: title.txt(20자) + ig_caption.txt(400-600자) → `verify_step.py 4`
-- [ ] **Step 5: fx_plan.json 6키 + `[PASS]` + 패치 로그 6개 `[ok]`** ⭐ → `verify_step.py 5`
+- [ ] **Step 5: fx_plan.json 5키(intro_video_animation·sfx·scene_effects·bgm·filter) + speed 1.2 + `[PASS]` + 패치 로그 `[ok]`** ⭐ → `verify_step.py 5`
 - [ ] Step 6: 영상 내보내기 (final.mp4) → `verify_step.py 6`
 
 **모든 게이트 PASS 전 완료 선언 금지.**

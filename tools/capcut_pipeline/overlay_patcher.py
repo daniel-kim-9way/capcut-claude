@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -323,17 +324,18 @@ def emphasis_position_y(position: str) -> float:
     """CapCut 텍스트 트랙 좌표계: 비디오 트랙과 동일 (양수=상단, 음수=하단).
 
     포지션 지침:
-      - "top" : 상단 (이미지 없는 씬에서 권장)
+      - "top" : 상단 (기본·권장). 2026-06-09: 0.7→0.45로 낮춤(2026-06-09 재조정) — 0.7은 인스타 계정명/
+                팔로우 버튼(상단 ~10%)에 가려짐. 0.45(위에서 27.5%)가 인스타 상단 세이프존(위 15%)·얼굴존(중앙±0.15) 사이 안전 위치.
       - "center" : 화면 중앙
-      - "lower" : 자막 바로 위 (split 이미지 있는 씬에서 권장, 이미지와 안 겹침)
+      - "lower" : 자막 바로 위 (overlay가 상단을 동시 점유할 때만)
       - "bottom" : 자막 위치 근처
     """
     return {
-        "top": 0.7,
+        "top": 0.6,
         "center": 0.2,
         "lower": -0.1,
         "bottom": -0.18,
-    }.get(position, 0.7)
+    }.get(position, 0.6)
 
 
 # ===== CE-02/CE-03 (2026-06-04): overlay position_y 슬롯 → transform.y 매핑 =====
@@ -357,10 +359,10 @@ def overlay_position_y(position: str) -> float:
     미지정/미인식 슬롯은 기존 overlay 하드코딩과 동일한 top(0.55)으로 폴백.
     """
     return {
-        "top": 0.55,     # 기존 overlay 하드코딩 값 그대로(하위호환)
+        "top": 0.6,     # 기존 overlay 하드코딩 값 그대로(하위호환)
         "center": 0.0,
         "lower": -0.05,  # 자막 바로 위. CE-03가 카드 높이 따라 추가 보정
-    }.get(position, 0.55)
+    }.get(position, 0.6)
 
 
 def _overlay_render_half_height_norm(
@@ -735,6 +737,88 @@ def max_render_index(draft: dict) -> int:
     return m
 
 
+# ===== speech-anchor (2026-06-11): overlay/emphasis를 실측 단어 경계에 스냅 =====
+# plan 비트에 `anchor_phrase`(화자가 그 시점 말하는 구절)를 적으면, transcript.json의 word
+# 타임스탬프에서 그 구절을 찾아 start_offset_sec를 단어 시작 시각으로 스냅한다(LLM 추정 대체).
+# 한국어라 공백·구두점 제거 후 누적 매칭(형태소 분석기 없이 결정론). 못 찾으면 None →
+# 기존 start_offset_sec 유지(graceful). ⚠️ anchor_phrase는 STT 원문에 실제 등장하는 표현으로
+# (예: 교정 전 "디엔엘", 영문복원 "DNA"가 아님). 좌표계는 clean 타임라인(전역 배속 전).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _norm_ko(s: str) -> str:
+    """공백·구두점 제거 후 소문자 — 한국어 fuzzy 매칭용."""
+    return re.sub(r"[\s\W_]+", "", s or "", flags=re.UNICODE).lower()
+
+
+def _load_transcript_words(project_name: str) -> list[dict]:
+    """output/<project>/subs/transcript.json의 word-level 타임스탬프를 flat list로."""
+    p = _REPO_ROOT / "output" / project_name / "subs" / "transcript.json"
+    if not p.exists():
+        return []
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    words: list[dict] = []
+    for seg in d.get("segments", []):
+        for w in seg.get("words", []) or []:
+            if w.get("start") is not None:
+                words.append(w)
+    return words
+
+
+def _anchor_offset_sec(words, scene_start_sec, scene_dur_sec, anchor_phrase):
+    """씬 구간 내에서 anchor_phrase를 찾아 씬 시작 기준 offset(초) 반환. 못 찾으면 None."""
+    target = _norm_ko(anchor_phrase)
+    if not target or not words:
+        return None
+    lo = scene_start_sec - 0.05
+    hi = scene_start_sec + (scene_dur_sec if scene_dur_sec else 1e9) + 0.05
+    win = [w for w in words if lo <= float(w.get("start", -1)) <= hi]
+    norms = [_norm_ko(w.get("word", "")) for w in win]
+    n = len(win)
+    # 접두사 정렬 매칭: anchor가 word[i]에서 **시작**하는 경우만 (단어 중간 substring 오매칭 방지).
+    for i in range(n):
+        concat = ""
+        for j in range(i, min(n, i + 14)):  # 최대 14단어 윈도우
+            concat += norms[j]
+            if concat == target or (len(concat) >= len(target) and concat.startswith(target)):
+                return max(0.0, round(float(win[i]["start"]) - scene_start_sec, 3))
+            if not target.startswith(concat):
+                break  # word[i] 시작이 anchor 접두사가 아님 → 다음 i로
+    return None
+
+
+def _apply_anchor_snaps(plan: dict, draft: dict, project_name: str) -> int:
+    """plan의 items/emphasis 중 anchor_phrase가 있는 것을 단어 경계로 스냅. 스냅 개수 반환."""
+    words = _load_transcript_words(project_name)
+    if not words:
+        return 0
+    snapped = 0
+
+    def _snap(it: dict):
+        nonlocal snapped
+        ph = it.get("anchor_phrase")
+        sidx = it.get("scene_idx")
+        if not ph or sidx is None:
+            return
+        try:
+            ss_us, sd_us = get_scene_timerange(draft, int(sidx))
+        except Exception:
+            return
+        off = _anchor_offset_sec(words, ss_us / SEC, sd_us / SEC, ph)
+        if off is not None:
+            it["start_offset_sec"] = off
+            snapped += 1
+
+    for it in plan.get("items", []) or []:
+        _snap(it)
+    for em in plan.get("emphasis", []) or []:
+        _snap(em)
+    return snapped
+
+
 def patch(
     draft_path: Path,
     plan_path: Path,
@@ -758,6 +842,12 @@ def patch(
         draft = json.load(f)
     with open(plan_path, "r", encoding="utf-8") as f:
         plan = json.load(f)
+
+    # speech-anchor: anchor_phrase가 있는 overlay/emphasis를 실측 단어 경계에 스냅
+    # (plan_hash 계산 전에 — 스냅된 offset이 멱등성 해시에 반영되도록).
+    _snapped = _apply_anchor_snaps(plan, draft, draft_path.parent.name)
+    if _snapped:
+        print(f"[anchor] {_snapped}개 overlay/emphasis를 발화 단어 경계에 스냅(speech-anchor)")
 
     plan_hash = _canonical_plan_hash(plan)
     existing = _detect_existing_patch(draft, draft_path)
@@ -928,6 +1018,16 @@ def patch(
             overlay_pos_y=resolved_pos_y,
             overlay_h_ratio=resolved_h_ratio,
         )
+        # ⭐ 모션 B-roll(.mov/.mp4)은 **무조건 scale 1.0 (100%)** = 캔버스 가득 (2026-06-05 결정).
+        #   - 모션 템플릿은 출력 해상도(1080x1920)에 맞춰 자체 레이아웃으로 제작 — 카드를 상단에
+        #     배치하고 얼굴/자막 zone을 비우는 식. overlay_h_ratio로 스케일하면 CapCut scale 의미
+        #     (scale 1.0=캔버스 가득)와 안 맞아 크기가 어긋난다. **'1:1 카드 상단 배치'는 scale로
+        #     하지 말고 템플릿 안에서 정사각 카드를 상단 band에 그릴 것** (2026-06-11 재확인).
+        #   - 정적 PNG 카드(legacy)는 기존 floating 동작 유지(여기 분기 안 탐).
+        if is_video_overlay and style == "overlay":
+            clip["scale"] = {"x": 1.0, "y": 1.0}
+            clip["transform"] = {"x": 0.0, "y": 0.0}
+            uniform = {"on": True, "value": 1.0}
         seg["clip"] = clip
         seg["uniform_scale"] = uniform
         seg["render_index"] = render_idx
@@ -1052,7 +1152,7 @@ def patch(
             "accent_words": title_cfg.get("accent_words", []),
             "start_offset_sec": float(title_cfg.get("start_offset_sec", 0.0)),
             "duration_sec": float(title_cfg.get("duration_sec", 4.0)),
-            "position": title_cfg.get("position", "center"),
+            "position": title_cfg.get("position", "top"),
             "font_size": float(title_cfg.get("font_size", 20.0)),
             "color": title_cfg.get("color", "#FFFFFF"),
             "accent_color": title_cfg.get("accent_color", "#B366FF"),

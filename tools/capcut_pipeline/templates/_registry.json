@@ -3,13 +3,9 @@
   "source_draft": "PROMPTER_20260417_160404",
   "extracted_at": "2026-04-21T18:10:41.559696",
   "required_fx_keys": {
-    "title_animation": {
+    "intro_video_animation": {
       "type": "dict",
-      "rationale": "160404 edit: typewriter on title"
-    },
-    "outro_animation": {
-      "type": "dict",
-      "rationale": "160404 edit: typewriter on CTA"
+      "rationale": "첫 클립 in-animation(줌1) — 시작 강조 (2026-06-08)"
     },
     "sfx": {
       "type": "list",
@@ -19,7 +15,7 @@
     "scene_effects": {
       "type": "list",
       "min_count": 3,
-      "rationale": "flash + math_rush + lens_zoom×n"
+      "rationale": "math_rush + lens_zoom×n (flash_warm 제거)"
     },
     "bgm": {
       "type": "dict",

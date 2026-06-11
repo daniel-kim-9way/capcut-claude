@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>dna_helix motion (9:16) — 강점은 타고난 DNA</title>
+<link rel="stylesheet" href="shared.css" />
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { width: 1080px; height: 1920px; }
+  .stage { align-items: center; }
+
+  .card {
+    width: 1080px; height: 1920px;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+    opacity: 0;
+  }
+
+  .title {
+    margin-top: 300px;
+    font-size: 76px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: var(--ls-tight);
+    text-align: center;
+    opacity: 0;
+  }
+  .title .accent { color: var(--accent); }
+  .sub {
+    margin-top: 28px;
+    font-size: 46px;
+    font-weight: 500;
+    color: var(--text-muted-dark);
+    text-align: center;
+    opacity: 0;
+  }
+
+  svg { position: absolute; top: 0; left: 0; }
+  .strand { fill: none; stroke-width: 9; stroke-linecap: round; }
+  .rung { stroke-width: 11; stroke-linecap: round; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <div class="title" id="title"></div>
+      <div class="sub" id="sub"></div>
+      <svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+        <g id="rungs"></g>
+        <path id="s1" class="strand" />
+        <path id="s2" class="strand" />
+      </svg>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const P = window.__params || {
+    title: "강점은 타고난다",
+    accent_word: "타고난다",
+    sub: "이미 DNA처럼 박혀 있다",
+    accent: "amber",
+    duration: 5.5,
+  };
+
+  const accentMap = { purple:"#B366FF", blue:"#0070F3", green:"#2AF598", amber:"#FFB020" };
+  const accentHex = accentMap[P.accent] || accentMap.amber;
+  document.documentElement.style.setProperty("--accent", accentHex);
+
+  // title with accent highlight on accent_word
+  const titleEl = document.getElementById("title");
+  const t = P.title || "";
+  const aw = P.accent_word || "";
+  if (aw && t.includes(aw)) {
+    titleEl.innerHTML = t.replace(aw, `<span class="accent">${aw}</span>`);
+  } else {
+    titleEl.textContent = t;
+  }
+  document.getElementById("sub").textContent = P.sub || "";
+
+  // ---- build double helix geometry ----
+  const cx = 540, top = 760, H = 880, A = 150, turns = 2.6, N = 150;
+  function strandPath(phase0) {
+    let d = "";
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      const y = top + u * H;
+      const ph = u * turns * Math.PI * 2 + phase0;
+      const x = cx + A * Math.sin(ph);
+      d += (i === 0 ? "M" : "L") + x.toFixed(1) + " " + y.toFixed(1) + " ";
+    }
+    return d.trim();
+  }
+  const s1 = document.getElementById("s1");
+  const s2 = document.getElementById("s2");
+  s1.setAttribute("d", strandPath(0));
+  s2.setAttribute("d", strandPath(Math.PI));
+  s1.style.stroke = "#FFFFFF";
+  s2.style.stroke = accentHex;
+
+  // rungs at intervals — depth-cued opacity/width via sin
+  const rungsG = document.getElementById("rungs");
+  const rungEls = [];
+  const RUNG_STEP = 9;
+  for (let i = RUNG_STEP; i < N; i += RUNG_STEP) {
+    const u = i / N;
+    const y = top + u * H;
+    const ph = u * turns * Math.PI * 2;
+    const x1 = cx + A * Math.sin(ph);
+    const x2 = cx + A * Math.sin(ph + Math.PI);
+    const depth = Math.abs(Math.cos(ph)); // 0(edge) .. 1(front)
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1.toFixed(1)); line.setAttribute("y1", y.toFixed(1));
+    line.setAttribute("x2", x2.toFixed(1)); line.setAttribute("y2", y.toFixed(1));
+    line.setAttribute("class", "rung");
+    line.style.stroke = depth > 0.5 ? accentHex : "#5A5A62";
+    line.style.opacity = 0;
+    line.style.strokeWidth = (6 + depth * 8).toFixed(1);
+    rungsG.appendChild(line);
+    rungEls.push(line);
+  }
+
+  // ---- animate ----
+  const tl = gsap.timeline({ paused: true });
+  const D = P.duration;
+
+  tl.to("#card", { opacity: 1, duration: 0.4 }, 0);
+
+  // strands draw via dashoffset
+  [s1, s2].forEach((s) => {
+    const len = s.getTotalLength();
+    s.style.strokeDasharray = len;
+    s.style.strokeDashoffset = len;
+  });
+  tl.to([s1, s2], { strokeDashoffset: 0, duration: 1.3, ease: "power2.inOut" }, 0.3);
+
+  // rungs stagger pop after strands begin
+  tl.to(rungEls, { opacity: 1, duration: 0.4, stagger: 0.045, ease: "power2.out" }, 0.9);
+
+  // labels
+  tl.to("#title", { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 1.7);
+  tl.to("#sub", { opacity: 1, duration: 0.5, ease: "power2.out" }, 2.0);
+
+  // gentle continuous shimmer on accent strand
+  tl.to(s2, { opacity: 0.75, duration: 0.8, repeat: 2, yoyo: true, ease: "sine.inOut" }, 2.4);
+
+  const consumed = 2.4;
+  tl.to({}, { duration: Math.max(0.1, D - consumed) }, consumed);
+
+  window.__tl = tl;
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>
